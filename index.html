@@ -3,79 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>hydroAPP Pro Web</title>
+    <title>hydroAPP Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .card-custom { background: white; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .font-mono-custom { font-family: "Courier New", Courier, monospace; }
+        .station-row:active { background-color: #ebf5ff; }
+    </style>
 </head>
-<body class="bg-gray-900 text-white font-mono">
+<body class="pb-10">
 
-    <nav class="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900 sticky top-0 z-50">
-        <h1 class="text-blue-400 font-bold">hydroAPP <span class="text-xs text-gray-500">v2.0 WEB</span></h1>
-        <div id="last-update" class="text-xs text-gray-400">Odświeżanie...</div>
-    </nav>
+    <header class="p-6 flex justify-between items-center max-w-2xl mx-auto">
+        <div class="flex items-center gap-2">
+            <i class="bi bi-arrow-clockwise text-xl"></i>
+            <span id="refresh-time" class="font-bold text-sm">--:--</span>
+        </div>
+        <h1 class="font-bold text-lg tracking-tight font-mono-custom text-gray-800">hydroAPP</h1>
+        <i class="bi bi-gear-fill text-xl text-gray-700"></i>
+    </header>
 
-    <main class="p-4 max-w-2xl mx-auto">
-        <div class="grid grid-cols-2 gap-4 mb-6">
-            <div class="bg-gray-800 p-4 rounded-xl text-center">
-                <p class="text-[10px] text-gray-400 font-bold uppercase">Temperatura</p>
-                <p id="temp" class="text-xl font-bold">--°C</p>
+    <main class="px-4 max-w-2xl mx-auto">
+        <h2 class="text-center text-blue-500 font-black text-sm mb-6 tracking-widest uppercase">Puławy</h2>
+
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="card-custom p-4 text-center">
+                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter">Temp</p>
+                <i class="bi bi-thermometer-half text-blue-400 text-xl"></i>
+                <p id="temp" class="text-lg font-bold mt-1 tracking-tight">--°C</p>
             </div>
-            <div class="bg-gray-800 p-4 rounded-xl text-center">
-                <p class="text-[10px] text-gray-400 font-bold uppercase">Opad</p>
-                <p id="rain" class="text-xl font-bold">--mm</p>
+            <div class="card-custom p-4 text-center">
+                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter">Opad</p>
+                <i class="bi bi-cloud-rain-fill text-blue-400 text-xl"></i>
+                <p id="rain" class="text-lg font-bold mt-1 tracking-tight">--mm</p>
+            </div>
+            <div class="card-custom p-4 text-center">
+                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter">Wiatr</p>
+                <i id="wind-icon" class="bi bi-compass text-blue-400 text-xl inline-block transition-transform duration-500"></i>
+                <p id="wind" class="text-lg font-bold mt-1 tracking-tight">-- m/s</p>
+            </div>
+            <div class="card-custom p-4 text-center">
+                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter">Ciśn.</p>
+                <i class="bi bi-speedometer2 text-blue-400 text-xl"></i>
+                <p id="pressure" class="text-lg font-bold mt-1 tracking-tight">-- hPa</p>
             </div>
         </div>
 
-        <div class="bg-gray-800 p-4 rounded-xl mb-6">
-            <p class="text-[10px] text-blue-400 font-bold mb-4 uppercase">Historia poziomu wody</p>
-            <canvas id="waterChart"></canvas>
-        </div>
-
-        <div class="bg-gray-800 rounded-xl overflow-hidden">
-            <div class="p-3 bg-gray-700 text-[10px] font-bold">STACJE NA RZECE WISŁA</div>
-            <div id="stations-list" class="divide-y divide-gray-700">
+        <div class="bg-white rounded-[25px] shadow-sm overflow-hidden border border-gray-100">
+            <div class="px-6 py-4 border-b border-gray-50 flex items-center gap-2 text-gray-400">
+                <i class="bi bi-arrow-up text-xs"></i>
+                <span class="text-[10px] font-bold tracking-widest uppercase">Kierunek: Ujście</span>
+            </div>
+            
+            <div id="stations-list" class="divide-y divide-gray-50">
                 </div>
+
+            <div class="px-6 py-4 border-t border-gray-50 flex items-center gap-2 text-gray-400">
+                <i class="bi bi-arrow-down text-xs"></i>
+                <span class="text-[10px] font-bold tracking-widest uppercase">Kierunek: Źródło</span>
+            </div>
         </div>
     </main>
 
     <script>
-        // LOGIKA POBIERANIA DANYCH (Twoja "Mózgownica")
-        async function updateData() {
+        // Dane progów z Twojej aplikacji Swift
+        const lookup = {
+            "Sandomierz": { warning: 420, alarm: 610, lat: 50.68, lon: 21.75 },
+            "Annopol": { warning: 500, alarm: 550, lat: 50.88, lon: 21.85 },
+            "Zawichost": { warning: 520, alarm: 620, lat: 50.80, lon: 21.85 },
+            "Puławy": { warning: 450, alarm: 550, lat: 51.42, lon: 21.95 },
+            "Dęblin": { warning: 400, alarm: 500, lat: 51.55, lon: 21.83 },
+            "Kolonia Nadwiślańska": { warning: 450, alarm: 550, lat: 51.21, lon: 21.83 },
+            "Kolonia nadwiślańska": { warning: 450, alarm: 550, lat: 51.21, lon: 21.83 },
+            "Włocławek": { warning: 600, alarm: 650, lat: 52.66, lon: 19.07 }
+        };
+
+        async function init() {
             try {
-                const response = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
-                const data = await response.json();
+                // 1. Pobierz Hydro z IMGW
+                const hydroRes = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
+                const hydroData = await hydroRes.json();
                 
-                // Filtrowanie (Wisła, Puławy)
-                const stations = data.filter(s => s.rzeka === "Wisła");
-                renderStations(stations);
+                // Filtruj Wisłę i ogranicz do Twoich stacji
+                const myStations = ["Włocławek", "Kolonia nadwiślańska", "Puławy", "Dęblin", "Zawichost", "Annopol", "Sandomierz"];
+                const filtered = hydroData.filter(s => myStations.includes(s.stacja));
                 
-                document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
-            } catch (error) {
-                console.error("Błąd pobierania:", error);
-            }
+                // Sortuj wg listy (od ujścia do źródła)
+                filtered.sort((a, b) => myStations.indexOf(a.stacja) - myStations.indexOf(b.stacja));
+                
+                renderStations(filtered);
+                document.getElementById('refresh-time').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+                // 2. Pobierz pogodę dla Puław (wybrana domyślnie)
+                updateWeather(51.42, 21.95);
+                
+            } catch (e) { console.error("Błąd:", e); }
         }
 
         function renderStations(stations) {
-            const list = document.getElementById('stations-list');
-            list.innerHTML = '';
+            const container = document.getElementById('stations-list');
+            container.innerHTML = '';
             
             stations.forEach(s => {
-                const row = `
-                    <div class="p-4 flex justify-between items-center">
+                const config = lookup[s.stacja] || {};
+                const level = parseInt(s.stan_wody);
+                let colorClass = "text-blue-500";
+                
+                if (config.alarm && level >= config.alarm) colorClass = "text-red-500";
+                else if (config.warning && level >= config.warning) colorClass = "text-orange-500";
+
+                const isSelected = s.stacja === "Puławy";
+
+                container.innerHTML += `
+                    <div class="px-6 py-5 flex justify-between items-center station-row ${isSelected ? 'bg-blue-50/50' : ''}">
                         <div>
-                            <p class="font-bold text-sm">${s.stacja}</p>
-                            <p class="text-[10px] text-gray-400 uppercase">${s.id_stacji}</p>
+                            <p class="font-bold ${isSelected ? 'text-gray-900' : 'text-gray-400'} text-base">${s.stacja}</p>
+                            <div class="flex gap-4 mt-1">
+                                ${config.warning ? `<span class="text-[10px] font-bold text-orange-400"><i class="bi bi-exclamation-triangle-fill"></i> ${config.warning}</span>` : ''}
+                                ${config.alarm ? `<span class="text-[10px] font-bold text-red-500"><i class="bi bi-lightning-fill"></i> ${config.alarm}</span>` : ''}
+                            </div>
                         </div>
                         <div class="text-right">
-                            <p class="font-bold text-blue-400">${s.stan_wody || '--'} cm</p>
+                            <p class="text-xl font-bold font-mono-custom ${colorClass}">${s.stan_wody || '--'} <span class="text-xs font-bold">cm</span></p>
+                            ${isSelected ? '<p class="text-[8px] font-black text-blue-400 tracking-tighter uppercase">Wybrana</p>' : ''}
                         </div>
                     </div>
                 `;
-                list.innerHTML += row;
             });
         }
 
-        updateData();
+        async function updateWeather(lat, lon) {
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=precipitation_sum&timezone=auto`);
+            const data = await res.json();
+            const cur = data.current_weather;
+
+            document.getElementById('temp').innerText = cur.temperature + "°C";
+            document.getElementById('rain').innerText = data.daily.precipitation_sum[0] + "mm";
+            document.getElementById('wind').innerText = (cur.windspeed / 3.6).toFixed(1) + " m/s";
+            document.getElementById('wind-icon').style.transform = `rotate(${cur.winddirection}deg)`;
+            document.getElementById('pressure').innerText = "1013 hPa"; // Domyślne lub z API jeśli dodasz pole
+        }
+
+        init();
     </script>
 </body>
 </html>
