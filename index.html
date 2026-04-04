@@ -3,34 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>hydro/title>
+    <title>hydroAPP Pro Web</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
-        body { background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
         .card-custom { background: white; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .font-mono-custom { font-family: "Courier New", Courier, monospace; }
         .station-row { cursor: pointer; transition: all 0.2s ease; }
+        .station-row:active { background-color: #f0f7ff; }
         .selected-station { background-color: #ebf5ff !important; border-left: 4px solid #3b82f6; }
         #settings-modal { display: none; }
         .modal-active { display: flex !important; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .animate-up { animation: slideUp 0.3s ease-out; }
     </style>
 </head>
 <body class="pb-10">
 
-    <header class="p-6 flex justify-between items-center max-w-2xl mx-auto">
+    <header class="p-6 flex justify-between items-center max-w-2xl mx-auto sticky top-0 bg-white/80 backdrop-blur-md z-40">
         <div class="flex items-center gap-2 text-gray-500">
             <i class="bi bi-clock-history text-sm"></i>
-            <span id="last-update-label" class="font-bold text-[10px] uppercase tracking-wider text-gray-400">Aktualizacja: --:--</span>
+            <span id="last-update-label" class="font-bold text-[10px] uppercase tracking-wider text-gray-400 font-mono-custom">Aktualizacja: --:--</span>
         </div>
-        <h1 class="font-bold text-lg tracking-tight font-mono-custom text-gray-800">hydro</h1>
-        <button onclick="toggleSettings()" class="focus:outline-none">
+        <h1 class="font-bold text-lg tracking-tight font-mono-custom text-gray-800">hydroAPP</h1>
+        <button onclick="toggleSettings()" class="p-2 -mr-2">
             <i class="bi bi-gear-fill text-xl text-gray-700 hover:text-blue-500 transition-colors"></i>
         </button>
     </header>
 
     <main class="px-4 max-w-2xl mx-auto">
-        <h2 id="current-station-name" class="text-center text-blue-500 font-black text-sm mb-6 tracking-widest uppercase tracking-widest">Ładowanie...</h2>
+        <h2 id="current-station-name" class="text-center text-blue-500 font-black text-sm mb-6 tracking-widest uppercase">Ładowanie danych...</h2>
 
         <div class="grid grid-cols-2 gap-4 mb-8">
             <div class="card-custom p-4 text-center">
@@ -56,44 +59,52 @@
         </div>
 
         <div class="bg-white rounded-[25px] shadow-sm overflow-hidden border border-gray-100">
+            <div class="px-6 py-3 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
+                <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Lista stacji</span>
+                <span id="river-label" class="text-[9px] font-black text-blue-400 uppercase tracking-widest">Wisła</span>
+            </div>
             <div id="stations-list" class="divide-y divide-gray-50">
                 </div>
         </div>
     </main>
 
-    <div id="settings-modal" class="fixed inset-0 bg-black/50 z-50 items-end sm:items-center justify-center p-4">
-        <div class="bg-white w-full max-w-md rounded-[30px] p-6 shadow-2xl animate-in slide-in-from-bottom">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="font-bold text-xl">Ustawienia</h3>
-                <button onclick="toggleSettings()" class="text-gray-400 hover:text-black text-2xl">&times;</button>
+    <div id="settings-modal" class="fixed inset-0 bg-black/60 z-50 items-end sm:items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-[30px] p-8 shadow-2xl animate-up">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="font-bold text-2xl tracking-tight">Ustawienia</h3>
+                <button onclick="toggleSettings()" class="bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center text-gray-500 hover:text-black">&times;</button>
             </div>
             
             <div class="space-y-6">
                 <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Wybierz rzekę</label>
-                    <select id="river-select" onchange="changeRiver(this.value)" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-500">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3 ml-1">Wybór rzeki</label>
+                    <select id="river-select" onchange="changeRiver(this.value)" class="w-full p-5 bg-gray-100 rounded-2xl border-none font-bold text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 appearance-none">
                         <option value="Wisła">Wisła</option>
                         <option value="Odra">Odra</option>
                         <option value="Warta">Warta</option>
+                        <option value="Dunajec">Dunajec</option>
+                        <option value="Bug">Bug</option>
                         <option value="Narew">Narew</option>
                     </select>
                 </div>
                 
-                <div class="bg-blue-50 p-4 rounded-2xl">
-                    <p class="text-xs text-blue-600 leading-relaxed italic">
-                        "Aplikacja automatycznie wybiera stację z największym stanem wody dla danej rzeki po zmianie."
+                <div class="bg-blue-50 p-5 rounded-2xl flex gap-3 items-start">
+                    <i class="bi bi-info-circle-fill text-blue-500 mt-0.5"></i>
+                    <p class="text-xs text-blue-700 leading-relaxed font-medium">
+                        Strona automatycznie pobiera świeże dane z IMGW na początku każdej godziny.
                     </p>
                 </div>
                 
-                <button onclick="toggleSettings()" class="w-full bg-blue-500 text-white font-bold py-4 rounded-2xl hover:bg-blue-600 transition-colors">
-                    Gotowe
+                <button onclick="toggleSettings()" class="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">
+                    Zapisz i zamknij
                 </button>
             </div>
         </div>
     </div>
 
     <script>
-        const lookup = {
+        // Dane techniczne stacji (współrzędne i progi)
+        const stationLookup = {
             "Sandomierz": { warning: 420, alarm: 610, lat: 50.68, lon: 21.75 },
             "Annopol": { warning: 500, alarm: 550, lat: 50.88, lon: 21.85 },
             "Zawichost": { warning: 520, alarm: 620, lat: 50.80, lon: 21.85 },
@@ -103,41 +114,73 @@
             "Włocławek": { warning: 600, alarm: 650, lat: 52.66, lon: 19.07 }
         };
 
-        let rawApiData = [];
+        let rawHydroData = [];
         let currentRiver = "Wisła";
-        let selectedStationName = "Puławy";
+        let selectedStation = "Puławy";
 
+        // 1. INICJALIZACJA
         async function init() {
-            const res = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
-            rawApiData = await res.json();
-            const now = new Date();
-            document.getElementById('last-update-label').innerText = `Aktualizacja: ${now.getHours()}:00`;
-            refreshList();
+            await loadData();
+            
+            // Auto-odświeżanie co pełną godzinę
+            setInterval(() => {
+                if (new Date().getMinutes() === 0) loadData();
+            }, 60000);
+
+            // Odświeżanie po powrocie do karty
+            document.addEventListener("visibilitychange", () => {
+                if (document.visibilityState === "visible") loadData();
+            });
         }
 
-        function refreshList() {
-            const container = document.getElementById('stations-list');
-            container.innerHTML = '';
+        // 2. POBIERANIE DANYCH
+        async function loadData() {
+            try {
+                const res = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
+                const data = await res.json();
+                
+                // Usuwanie duplikatów stacji
+                const seen = new Set();
+                rawHydroData = data.filter(s => {
+                    const duplicate = seen.has(s.stacja + s.rzeka);
+                    seen.add(s.stacja + s.rzeka);
+                    return !duplicate;
+                });
+
+                const now = new Date();
+                document.getElementById('last-update-label').innerText = `Aktualizacja: ${now.getHours()}:00`;
+                
+                renderUI();
+            } catch (e) {
+                console.error("Błąd IMGW:", e);
+            }
+        }
+
+        // 3. RENDEROWANIE INTERFEJSU
+        function renderUI() {
+            const list = document.getElementById('stations-list');
+            list.innerHTML = '';
             
-            // Filtrowanie stacji dla wybranej rzeki
-            const filtered = rawApiData.filter(s => s.rzeka.toLowerCase() === currentRiver.toLowerCase());
+            document.getElementById('river-label').innerText = currentRiver;
             
+            const filtered = rawHydroData.filter(s => s.rzeka.toLowerCase() === currentRiver.toLowerCase());
+
             if (filtered.length === 0) {
-                container.innerHTML = '<div class="p-10 text-center text-gray-400">Brak danych dla tej rzeki</div>';
+                list.innerHTML = '<div class="p-10 text-center text-gray-400 text-sm">Brak danych dla tej rzeki</div>';
                 return;
             }
 
-            // Ustaw pierwszą stację z brzegu jeśli stara nie pasuje do nowej rzeki
-            if (!filtered.find(s => s.stacja === selectedStationName)) {
-                selectedStationName = filtered[0].stacja;
+            // Sprawdź czy wybrana stacja jest na tej rzece, jak nie - weź pierwszą
+            if (!filtered.find(s => s.stacja === selectedStation)) {
+                selectedStation = filtered[0].stacja;
             }
 
-            document.getElementById('current-station-name').innerText = selectedStationName;
+            document.getElementById('current-station-name').innerText = selectedStation;
 
             filtered.forEach(s => {
-                const config = lookup[s.stacja] || { lat: 52.2, lon: 21.0 };
+                const config = stationLookup[s.stacja] || { lat: 52.2, lon: 21.0 };
                 const level = parseInt(s.stan_wody) || 0;
-                const isSelected = s.stacja === selectedStationName;
+                const isSelected = s.stacja === selectedStation;
                 
                 let colorClass = "text-blue-500";
                 if (config.alarm && level >= config.alarm) colorClass = "text-red-500";
@@ -146,116 +189,53 @@
                 const row = document.createElement('div');
                 row.className = `px-6 py-5 flex justify-between items-center station-row ${isSelected ? 'selected-station' : ''}`;
                 row.onclick = () => {
-                    selectedStationName = s.stacja;
-                    refreshList();
+                    selectedStation = s.stacja;
+                    renderUI();
                     window.scrollTo({top: 0, behavior: 'smooth'});
                 };
                 
                 row.innerHTML = `
                     <div>
-                        <p class="font-bold ${isSelected ? 'text-blue-600' : 'text-gray-700'} text-base">${s.stacja}</p>
-                        <p class="text-[9px] text-gray-400 font-bold uppercase">${s.id_stacji}</p>
+                        <p class="font-bold ${isSelected ? 'text-blue-600' : 'text-gray-700'} text-base leading-none">${s.stacja}</p>
+                        <div class="flex gap-3 mt-2">
+                            ${config.warning ? `<span class="text-[9px] font-black text-orange-400/80 uppercase"><i class="bi bi-exclamation-triangle-fill"></i> ${config.warning}</span>` : ''}
+                            ${config.alarm ? `<span class="text-[9px] font-black text-red-500/80 uppercase"><i class="bi bi-lightning-fill"></i> ${config.alarm}</span>` : ''}
+                        </div>
                     </div>
                     <div class="text-right">
-                        <p class="text-xl font-bold font-mono-custom ${colorClass}">${s.stan_wody || '--'}<span class="text-xs ml-1">cm</span></p>
+                        <p class="text-xl font-bold font-mono-custom ${colorClass}">${s.stan_wody || '--'}<span class="text-[10px] ml-1 text-gray-400">cm</span></p>
+                        ${isSelected ? '<p class="text-[7px] font-black text-blue-400 uppercase tracking-widest mt-1">Wybrana</p>' : ''}
                     </div>
                 `;
-                container.appendChild(row);
+                list.appendChild(row);
                 
                 if(isSelected) updateWeather(config.lat, config.lon);
             });
         }
 
+        // 4. POGODA
         async function updateWeather(lat, lon) {
-            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=precipitation_sum,surface_pressure_max&timezone=auto`);
-            const data = await res.json();
-            const cur = data.current_weather;
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=precipitation_sum,surface_pressure_max&timezone=auto`);
+                const data = await res.json();
+                const cur = data.current_weather;
 
-            document.getElementById('temp').innerText = Math.round(cur.temperature) + "°C";
-            document.getElementById('rain').innerText = data.daily.precipitation_sum[0] + "mm";
-            document.getElementById('wind').innerText = (cur.windspeed / 3.6).toFixed(1) + " m/s";
-            document.getElementById('wind-icon').style.transform = `rotate(${cur.winddirection}deg)`;
-            document.getElementById('pressure').innerText = Math.round(data.daily.surface_pressure_max[0]) + " hPa";
+                document.getElementById('temp').innerText = Math.round(cur.temperature) + "°C";
+                document.getElementById('rain').innerText = data.daily.precipitation_sum[0] + "mm";
+                document.getElementById('wind').innerText = (cur.windspeed / 3.6).toFixed(1) + " m/s";
+                document.getElementById('wind-icon').style.transform = `rotate(${cur.winddirection}deg)`;
+                document.getElementById('pressure').innerText = Math.round(data.daily.surface_pressure_max[0]) + " hPa";
+            } catch (e) { console.error("Błąd pogodowy:", e); }
         }
 
+        // 5. OBSŁUGA USTAWIEŃ
         function toggleSettings() {
             document.getElementById('settings-modal').classList.toggle('modal-active');
         }
 
         function changeRiver(name) {
             currentRiver = name;
-            refreshList();
-        }
-
-        init();
-    </script>
-</body>
-</html>        };
-
-        async function init() {
-            try {
-                // 1. Pobierz Hydro z IMGW
-                const hydroRes = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
-                const hydroData = await hydroRes.json();
-                
-                // Filtruj Wisłę i ogranicz do Twoich stacji
-                const myStations = ["Włocławek", "Kolonia nadwiślańska", "Puławy", "Dęblin", "Zawichost", "Annopol", "Sandomierz"];
-                const filtered = hydroData.filter(s => myStations.includes(s.stacja));
-                
-                // Sortuj wg listy (od ujścia do źródła)
-                filtered.sort((a, b) => myStations.indexOf(a.stacja) - myStations.indexOf(b.stacja));
-                
-                renderStations(filtered);
-                document.getElementById('refresh-time').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-                // 2. Pobierz pogodę dla Puław (wybrana domyślnie)
-                updateWeather(51.42, 21.95);
-                
-            } catch (e) { console.error("Błąd:", e); }
-        }
-
-        function renderStations(stations) {
-            const container = document.getElementById('stations-list');
-            container.innerHTML = '';
-            
-            stations.forEach(s => {
-                const config = lookup[s.stacja] || {};
-                const level = parseInt(s.stan_wody);
-                let colorClass = "text-blue-500";
-                
-                if (config.alarm && level >= config.alarm) colorClass = "text-red-500";
-                else if (config.warning && level >= config.warning) colorClass = "text-orange-500";
-
-                const isSelected = s.stacja === "Puławy";
-
-                container.innerHTML += `
-                    <div class="px-6 py-5 flex justify-between items-center station-row ${isSelected ? 'bg-blue-50/50' : ''}">
-                        <div>
-                            <p class="font-bold ${isSelected ? 'text-gray-900' : 'text-gray-400'} text-base">${s.stacja}</p>
-                            <div class="flex gap-4 mt-1">
-                                ${config.warning ? `<span class="text-[10px] font-bold text-orange-400"><i class="bi bi-exclamation-triangle-fill"></i> ${config.warning}</span>` : ''}
-                                ${config.alarm ? `<span class="text-[10px] font-bold text-red-500"><i class="bi bi-lightning-fill"></i> ${config.alarm}</span>` : ''}
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-xl font-bold font-mono-custom ${colorClass}">${s.stan_wody || '--'} <span class="text-xs font-bold">cm</span></p>
-                            ${isSelected ? '<p class="text-[8px] font-black text-blue-400 tracking-tighter uppercase">Wybrana</p>' : ''}
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        async function updateWeather(lat, lon) {
-            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=precipitation_sum&timezone=auto`);
-            const data = await res.json();
-            const cur = data.current_weather;
-
-            document.getElementById('temp').innerText = cur.temperature + "°C";
-            document.getElementById('rain').innerText = data.daily.precipitation_sum[0] + "mm";
-            document.getElementById('wind').innerText = (cur.windspeed / 3.6).toFixed(1) + " m/s";
-            document.getElementById('wind-icon').style.transform = `rotate(${cur.winddirection}deg)`;
-            document.getElementById('pressure').innerText = "1013 hPa"; // Domyślne lub z API jeśli dodasz pole
+            renderUI();
         }
 
         init();
