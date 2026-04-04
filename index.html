@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>hydroAPP Pro Web</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         body { background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -35,49 +36,198 @@
     <main class="px-4 max-w-2xl mx-auto">
         <h2 id="current-station-name" class="text-center text-blue-500 font-black text-sm mb-6 tracking-widest uppercase">Ładowanie danych...</h2>
 
-        <div class="grid grid-cols-2 gap-4 mb-8">
+        <div class="grid grid-cols-2 gap-4 mb-6">
             <div class="card-custom p-4 text-center">
-                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter">Temp</p>
+                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter text-[9px]">Temp</p>
                 <i class="bi bi-thermometer-half text-blue-400 text-xl"></i>
                 <p id="temp" class="text-lg font-bold mt-1 tracking-tight">--°C</p>
             </div>
             <div class="card-custom p-4 text-center">
-                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter">Opad</p>
+                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter text-[9px]">Opad</p>
                 <i class="bi bi-cloud-rain-fill text-blue-400 text-xl"></i>
                 <p id="rain" class="text-lg font-bold mt-1 tracking-tight">--mm</p>
             </div>
             <div class="card-custom p-4 text-center">
-                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter">Wiatr</p>
+                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter text-[9px]">Wiatr</p>
                 <i id="wind-icon" class="bi bi-compass text-blue-400 text-xl inline-block transition-transform duration-500"></i>
                 <p id="wind" class="text-lg font-bold mt-1 tracking-tight">-- m/s</p>
             </div>
             <div class="card-custom p-4 text-center">
-                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter">Ciśn.</p>
+                <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter text-[9px]">Ciśn.</p>
                 <i class="bi bi-speedometer2 text-blue-400 text-xl"></i>
                 <p id="pressure" class="text-lg font-bold mt-1 tracking-tight">-- hPa</p>
             </div>
         </div>
 
+        <div class="card-custom p-5 mb-8">
+            <p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-4">Historia poziomu wody</p>
+            <canvas id="hydroChart" height="150"></canvas>
+        </div>
+
         <div class="bg-white rounded-[25px] shadow-sm overflow-hidden border border-gray-100">
             <div class="px-6 py-3 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
-                <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Lista stacji</span>
+                <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Kierunek: Ujście</span>
                 <span id="river-label" class="text-[9px] font-black text-blue-400 uppercase tracking-widest">Wisła</span>
             </div>
-            <div id="stations-list" class="divide-y divide-gray-50">
-                </div>
+            <div id="stations-list" class="divide-y divide-gray-50"></div>
+            <div class="px-6 py-3 bg-gray-50/50 border-t border-gray-100">
+                <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Kierunek: Źródło</span>
+            </div>
         </div>
     </main>
 
     <div id="settings-modal" class="fixed inset-0 bg-black/60 z-50 items-end sm:items-center justify-center p-4">
         <div class="bg-white w-full max-w-md rounded-[30px] p-8 shadow-2xl animate-up">
             <div class="flex justify-between items-center mb-8">
-                <h3 class="font-bold text-2xl tracking-tight">Ustawienia</h3>
+                <h3 class="font-bold text-2xl tracking-tight text-gray-800">Ustawienia</h3>
                 <button onclick="toggleSettings()" class="bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center text-gray-500 hover:text-black">&times;</button>
             </div>
-            
             <div class="space-y-6">
                 <div>
                     <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3 ml-1">Wybór rzeki</label>
+                    <select id="river-select" onchange="changeRiver(this.value)" class="w-full p-5 bg-gray-100 rounded-2xl border-none font-bold text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 appearance-none">
+                        <option value="Wisła">Wisła</option>
+                        <option value="Odra">Odra</option>
+                        <option value="Warta">Warta</option>
+                    </select>
+                </div>
+                <button onclick="toggleSettings()" class="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">Zapisz i zamknij</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const stationLookup = {
+            "Sandomierz": { warning: 420, alarm: 610, lat: 50.68, lon: 21.75 },
+            "Annopol": { warning: 500, alarm: 550, lat: 50.88, lon: 21.85 },
+            "Zawichost": { warning: 520, alarm: 620, lat: 50.80, lon: 21.85 },
+            "Puławy": { warning: 450, alarm: 550, lat: 51.42, lon: 21.95 },
+            "Dęblin": { warning: 400, alarm: 500, lat: 51.55, lon: 21.83 },
+            "Kolonia nadwiślańska": { warning: 450, alarm: 550, lat: 51.21, lon: 21.83 },
+            "Włocławek": { warning: 600, alarm: 650, lat: 52.66, lon: 19.07 }
+        };
+
+        const wislaOrder = ["Włocławek", "Kolonia nadwiślańska", "Puławy", "Dęblin", "Zawichost", "Annopol", "Sandomierz"];
+        let rawHydroData = [];
+        let currentRiver = "Wisła";
+        let selectedStation = "Puławy";
+        let myChart = null;
+
+        async function init() {
+            await loadData();
+            // Auto-odświeżanie co pełną godzinę
+            setInterval(() => { if (new Date().getMinutes() === 0) loadData(); }, 60000);
+            document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadData(); });
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
+                const data = await res.json();
+                
+                // Usuwanie duplikatów (nazwa stacji)
+                const uniqueMap = new Map();
+                data.forEach(s => { if (!uniqueMap.has(s.stacja)) uniqueMap.set(s.stacja, s); });
+                rawHydroData = Array.from(uniqueMap.values());
+
+                const now = new Date();
+                document.getElementById('last-update-label').innerText = `Aktualizacja: ${now.getHours()}:00`;
+                renderUI();
+            } catch (e) { console.error(e); }
+        }
+
+        function renderUI() {
+            const list = document.getElementById('stations-list');
+            list.innerHTML = '';
+            document.getElementById('river-label').innerText = currentRiver;
+            
+            let filtered = rawHydroData.filter(s => s.rzeka.toLowerCase() === currentRiver.toLowerCase());
+
+            // Sortowanie dla Wisły
+            if (currentRiver.toLowerCase() === "wisła") {
+                filtered.sort((a, b) => {
+                    let idxA = wislaOrder.indexOf(a.stacja);
+                    let idxB = wislaOrder.indexOf(b.stacja);
+                    return (idxA > -1 ? idxA : 99) - (idxB > -1 ? idxB : 99);
+                });
+            }
+
+            if (!filtered.find(s => s.stacja === selectedStation)) selectedStation = filtered[0]?.stacja || "";
+            document.getElementById('current-station-name').innerText = selectedStation;
+
+            filtered.forEach(s => {
+                const config = stationLookup[s.stacja] || { lat: 52.2, lon: 21.0 };
+                const level = parseInt(s.stan_wody) || 0;
+                const isSelected = s.stacja === selectedStation;
+                
+                let colorClass = "text-blue-500";
+                if (config.alarm && level >= config.alarm) colorClass = "text-red-500";
+                else if (config.warning && level >= config.warning) colorClass = "text-orange-500";
+
+                const row = document.createElement('div');
+                row.className = `px-6 py-5 flex justify-between items-center station-row ${isSelected ? 'selected-station' : ''}`;
+                row.onclick = () => { selectedStation = s.stacja; renderUI(); window.scrollTo({top: 0, behavior: 'smooth'}); };
+                
+                row.innerHTML = `
+                    <div>
+                        <p class="font-bold ${isSelected ? 'text-blue-600' : 'text-gray-700'} text-base leading-none">${s.stacja}</p>
+                        <div class="flex gap-3 mt-2">
+                            ${config.warning ? `<span class="text-[9px] font-black text-orange-400 uppercase tracking-tighter"><i class="bi bi-exclamation-triangle-fill"></i> ${config.warning}</span>` : ''}
+                            ${config.alarm ? `<span class="text-[9px] font-black text-red-500 uppercase tracking-tighter"><i class="bi bi-lightning-fill"></i> ${config.alarm}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="text-right"><p class="text-xl font-bold font-mono-custom ${colorClass}">${s.stan_wody || '--'}<span class="text-[10px] ml-1 text-gray-400">cm</span></p></div>
+                `;
+                list.appendChild(row);
+                if(isSelected) { updateWeather(config.lat, config.lon); updateChart(level); }
+            });
+        }
+
+        async function updateWeather(lat, lon) {
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=precipitation_sum,surface_pressure_max&timezone=auto`);
+                const data = await res.json();
+                const cur = data.current_weather;
+                document.getElementById('temp').innerText = Math.round(cur.temperature) + "°C";
+                document.getElementById('rain').innerText = data.daily.precipitation_sum[0] + "mm";
+                document.getElementById('wind').innerText = (cur.windspeed / 3.6).toFixed(1) + " m/s";
+                document.getElementById('wind-icon').style.transform = `rotate(${cur.winddirection}deg)`;
+                document.getElementById('pressure').innerText = Math.round(data.daily.surface_pressure_max[0]) + " hPa";
+            } catch (e) { console.error(e); }
+        }
+
+        function updateChart(currentLevel) {
+            const ctx = document.getElementById('hydroChart').getContext('2d');
+            const labels = ['-6h', '-5h', '-4h', '-3h', '-2h', '-1h', 'Teraz'];
+            // Symulacja danych historycznych (w realu pobierane z API/DB)
+            const mockHistory = [currentLevel-5, currentLevel-3, currentLevel-4, currentLevel-2, currentLevel-1, currentLevel+1, currentLevel];
+            
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Stan wody (cm)',
+                        data: mockHistory,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 0
+                    }]
+                },
+                options: { plugins: { legend: { display: false } }, scales: { y: { display: true }, x: { grid: { display: false } } } }
+            });
+        }
+
+        function toggleSettings() { document.getElementById('settings-modal').classList.toggle('modal-active'); }
+        function changeRiver(name) { currentRiver = name; renderUI(); }
+        init();
+    </script>
+</body>
+</html>                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3 ml-1">Wybór rzeki</label>
                     <select id="river-select" onchange="changeRiver(this.value)" class="w-full p-5 bg-gray-100 rounded-2xl border-none font-bold text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 appearance-none">
                         <option value="Wisła">Wisła</option>
                         <option value="Odra">Odra</option>
