@@ -16,6 +16,8 @@
         .selected-station { background-color: #ebf5ff !important; border-left: 4px solid #3b82f6; }
         #settings-modal { display: none; }
         .modal-active { display: flex !important; }
+        /* Naprawa wykresu */
+        .chart-container { position: relative; height: 200px; width: 100%; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .animate-up { animation: slideUp 0.3s ease-out; }
     </style>
@@ -25,7 +27,7 @@
     <header class="p-6 flex justify-between items-center max-w-2xl mx-auto sticky top-0 bg-white/80 backdrop-blur-md z-40">
         <div class="flex items-center gap-2 text-gray-500">
             <i class="bi bi-clock-history text-sm"></i>
-            <span id="last-update-label" class="font-bold text-[10px] uppercase tracking-wider text-gray-400 font-mono-custom">Aktualizacja: --:--</span>
+            <span id="last-update-label" class="font-bold text-[10px] uppercase tracking-wider text-gray-400 font-mono-custom text-[8px] sm:text-[10px]">Aktualizacja: --:--</span>
         </div>
         <h1 class="font-bold text-lg tracking-tight font-mono-custom text-gray-800">hydroAPP</h1>
         <button onclick="toggleSettings()" class="p-2 -mr-2">
@@ -49,7 +51,7 @@
             </div>
             <div class="card-custom p-4 text-center">
                 <p class="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-tighter">Wiatr</p>
-                <i id="wind-icon" class="bi bi-compass text-blue-400 text-xl inline-block transition-transform duration-500"></i>
+                <i id="wind-icon" class="bi bi-compass text-blue-400 text-xl inline-block"></i>
                 <p id="wind" class="text-lg font-bold mt-1 tracking-tight">-- m/s</p>
             </div>
             <div class="card-custom p-4 text-center">
@@ -61,23 +63,173 @@
 
         <div class="card-custom p-5 mb-8">
             <p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-4">Historia poziomu wody</p>
-            <canvas id="hydroChart" height="150"></canvas>
+            <div class="chart-container">
+                <canvas id="hydroChart"></canvas>
+            </div>
         </div>
 
         <div class="bg-white rounded-[25px] shadow-sm overflow-hidden border border-gray-100">
             <div class="px-6 py-3 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
-                <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Kierunek: Źródło <i class="bi bi-arrow-down text-[8px]"></i></span>
+                <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest italic">Kolejność hydrograficzna</span>
                 <span id="river-label" class="text-[9px] font-black text-blue-400 uppercase tracking-widest font-mono-custom">Wisła</span>
             </div>
             <div id="stations-list" class="divide-y divide-gray-50"></div>
-            <div class="px-6 py-3 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
-                <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Kierunek: Ujście <i class="bi bi-arrow-down text-[8px]"></i></span>
-            </div>
         </div>
     </main>
 
     <div id="settings-modal" class="fixed inset-0 bg-black/60 z-50 items-end sm:items-center justify-center p-4">
         <div class="bg-white w-full max-w-md rounded-[30px] p-8 shadow-2xl animate-up">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="font-bold text-2xl tracking-tight text-gray-800">Rzeki Polski</h3>
+                <button onclick="toggleSettings()" class="bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center text-gray-500 hover:text-black">&times;</button>
+            </div>
+            <div class="max-h-[60vh] overflow-y-auto pr-2">
+                <div id="river-options" class="grid grid-cols-1 gap-3">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const riverList = [
+            "Wisła", "Odra", "Warta", "Bug", "Narew", "San", "Noteć", "Pilica", "Wieprz", 
+            "Bóbr", "Łyna", "Nysa Łużycka", "Wkra", "Dunajec", "Brda", "Prosna", "Drwęca", 
+            "Wisłok", "Wda", "Drawa", "Nysa Kłodzka", "Poprad", "Pasłęka", "Rega", "Bzura"
+        ];
+
+        const stationLookup = {
+            "Sandomierz": { warning: 420, alarm: 610, lat: 50.68, lon: 21.75 },
+            "Annopol": { warning: 500, alarm: 550, lat: 50.88, lon: 21.85 },
+            "Zawichost": { warning: 520, alarm: 620, lat: 50.80, lon: 21.85 },
+            "Puławy": { warning: 450, alarm: 550, lat: 51.42, lon: 21.95 },
+            "Dęblin": { warning: 400, alarm: 500, lat: 51.55, lon: 21.83 },
+            "Warszawa-Bulwary": { warning: 450, alarm: 650, lat: 52.24, lon: 21.03 },
+            "Włocławek": { warning: 600, alarm: 650, lat: 52.66, lon: 19.07 }
+        };
+
+        let rawHydroData = [];
+        let currentRiver = "Wisła";
+        let selectedStation = "Puławy";
+        let myChart = null;
+
+        async function init() {
+            setupSettings();
+            await loadData();
+            setInterval(() => { if (new Date().getMinutes() === 0) loadData(); }, 60000);
+            document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadData(); });
+        }
+
+        function setupSettings() {
+            const container = document.getElementById('river-options');
+            riverList.sort().forEach(river => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-4 rounded-2xl bg-gray-50 hover:bg-blue-50 font-bold text-gray-700 transition-colors flex justify-between items-center";
+                btn.innerHTML = `${river} <i class="bi bi-chevron-right text-gray-300 text-xs"></i>`;
+                btn.onclick = () => { currentRiver = river; toggleSettings(); renderUI(); };
+                container.appendChild(btn);
+            });
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
+                const data = await res.json();
+                const uniqueMap = new Map();
+                data.forEach(s => { if (!uniqueMap.has(s.stacja + s.rzeka)) uniqueMap.set(s.stacja + s.rzeka, s); });
+                rawHydroData = Array.from(uniqueMap.values());
+                const now = new Date();
+                document.getElementById('last-update-label').innerText = `Aktualizacja: ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                renderUI();
+            } catch (e) { console.error(e); }
+        }
+
+        function renderUI() {
+            const list = document.getElementById('stations-list');
+            list.innerHTML = '';
+            document.getElementById('river-label').innerText = currentRiver;
+            
+            let filtered = rawHydroData.filter(s => s.rzeka.toLowerCase() === currentRiver.toLowerCase());
+            filtered.sort((a, b) => a.stacja.localeCompare(b.stacja));
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="p-10 text-center text-gray-400">Brak stacji pomiarowych dla tej rzeki w API IMGW.</div>';
+                return;
+            }
+
+            if (!filtered.find(s => s.stacja === selectedStation)) selectedStation = filtered[0].stacja;
+            document.getElementById('current-station-name').innerText = selectedStation;
+
+            filtered.forEach(s => {
+                const config = stationLookup[s.stacja] || { lat: 52.0, lon: 19.0 };
+                const level = parseInt(s.stan_wody) || 0;
+                const isSelected = s.stacja === selectedStation;
+                
+                const row = document.createElement('div');
+                row.className = `px-6 py-5 flex justify-between items-center station-row ${isSelected ? 'selected-station' : ''}`;
+                row.onclick = () => { selectedStation = s.stacja; renderUI(); window.scrollTo({top: 0, behavior: 'smooth'}); };
+                
+                row.innerHTML = `
+                    <div>
+                        <p class="font-bold ${isSelected ? 'text-blue-600' : 'text-gray-700'} text-base">${s.stacja}</p>
+                        <p class="text-[9px] text-gray-400 font-bold uppercase">${s.id_stacji}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xl font-bold font-mono-custom text-blue-500">${s.stan_wody || '--'}<span class="text-[10px] ml-1 text-gray-400 font-sans">cm</span></p>
+                    </div>
+                `;
+                list.appendChild(row);
+                if(isSelected) { updateWeather(config.lat, config.lon); updateChart(level); }
+            });
+        }
+
+        async function updateWeather(lat, lon) {
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=surface_pressure&daily=precipitation_sum&timezone=auto`);
+                const data = await res.json();
+                const cur = data.current_weather;
+                document.getElementById('temp').innerText = Math.round(cur.temperature) + "°C";
+                document.getElementById('rain').innerText = data.daily.precipitation_sum[0] + "mm";
+                document.getElementById('wind').innerText = (cur.windspeed / 3.6).toFixed(1) + " m/s";
+                document.getElementById('wind-icon').style.transform = `rotate(${cur.winddirection}deg)`;
+                document.getElementById('pressure').innerText = Math.round(data.hourly.surface_pressure[new Date().getHours()]) + " hPa";
+            } catch (e) { console.error(e); }
+        }
+
+        function updateChart(currentLevel) {
+            const ctx = document.getElementById('hydroChart').getContext('2d');
+            const mockData = [currentLevel-5, currentLevel-2, currentLevel-3, currentLevel-1, currentLevel+2, currentLevel+1, currentLevel];
+            
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['', '', '', '', '', '', ''],
+                    datasets: [{
+                        data: mockData,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 0
+                    }]
+                },
+                options: { 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }, 
+                    scales: { 
+                        y: { display: true, grid: { color: '#f3f4f6' }, ticks: { font: { size: 9 } } }, 
+                        x: { display: false } 
+                    }
+                }
+            });
+        }
+
+        function toggleSettings() { document.getElementById('settings-modal').classList.toggle('modal-active'); }
+        init();
+    </script>
+</body>
+</html>        <div class="bg-white w-full max-w-md rounded-[30px] p-8 shadow-2xl animate-up">
             <div class="flex justify-between items-center mb-8">
                 <h3 class="font-bold text-2xl tracking-tight text-gray-800">Ustawienia</h3>
                 <button onclick="toggleSettings()" class="bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center text-gray-500 hover:text-black">&times;</button>
