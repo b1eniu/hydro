@@ -15,7 +15,7 @@
         .selected-station { background-color: #ebf5ff !important; border-left-color: #3b82f6; }
         #settings-modal { display: none; }
         .modal-active { display: flex !important; }
-        .chart-container { position: relative; height: 180px; width: 100%; }
+        .chart-container { position: relative; height: 160px; width: 100%; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .animate-up { animation: slideUp 0.3s ease-out; }
     </style>
@@ -34,7 +34,7 @@
     </header>
 
     <main class="px-4 max-w-2xl mx-auto">
-        <h2 id="current-station-name" class="text-center text-blue-500 font-black text-sm mb-6 tracking-widest uppercase">Wybierz stację</h2>
+        <h2 id="current-station-name" class="text-center text-blue-500 font-black text-sm mb-6 tracking-widest uppercase tracking-[0.2em]">Wybierz stację</h2>
 
         <div class="grid grid-cols-2 gap-4 mb-6">
             <div class="card-custom p-4 text-center">
@@ -68,16 +68,178 @@
 
         <div class="bg-white rounded-[25px] shadow-sm overflow-hidden border border-gray-100">
             <div class="px-6 py-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
-                <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                    <i class="bi bi-water text-blue-400"></i> Bieg rzeki: Źródło → Ujście
+                <span id="flow-direction-label" class="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                    <i class="bi bi-water text-blue-400"></i> Bieg: Źródło → Ujście
                 </span>
-                <span id="river-label" class="text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-2 py-1 rounded-md">Wisła</span>
+                <button onclick="reverseList()" class="bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-2 shadow-sm active:scale-95">
+                    <i class="bi bi-arrow-down-up"></i> Odwróć bieg
+                </button>
             </div>
             <div id="stations-list" class="divide-y divide-gray-50"></div>
         </div>
     </main>
 
     <div id="settings-modal" class="fixed inset-0 bg-black/60 z-50 items-end sm:items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-[30px] p-8 shadow-2xl animate-up">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-2xl tracking-tight text-gray-800">Wybierz rzekę</h3>
+                <button onclick="toggleSettings()" class="bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center text-gray-500 hover:text-black">&times;</button>
+            </div>
+            <div class="max-h-[50vh] overflow-y-auto pr-2" id="river-options"></div>
+        </div>
+    </div>
+
+    <script>
+        const riverList = ["Wisła", "Odra", "Warta", "Bug", "Narew", "San", "Noteć", "Pilica", "Wieprz", "Bóbr", "Łyna", "Nysa Łużycka", "Wkra", "Dunajec", "Brda", "Prosna", "Drwęca", "Wisłok", "Wda", "Drawa", "Nysa Kłodzka", "Poprad", "Pasłęka", "Rega", "Bzura"];
+
+        const stationCoords = {
+            "Sandomierz": [50.68, 21.75], "Annopol": [50.88, 21.85], "Zawichost": [50.80, 21.85],
+            "Puławy": [51.42, 21.95], "Dęblin": [51.55, 21.83], "Warszawa-Bulwary": [52.24, 21.03],
+            "Włocławek": [52.66, 19.07], "Toruń": [53.01, 18.60], "Tczew": [54.09, 18.79]
+        };
+
+        let rawHydroData = [];
+        let currentRiver = "Wisła";
+        let selectedStation = "Puławy";
+        let myChart = null;
+        let isReversed = false;
+
+        async function init() {
+            setupSettings();
+            await loadData();
+            setInterval(() => { if (new Date().getMinutes() === 0) loadData(); }, 60000);
+            document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadData(); });
+        }
+
+        function setupSettings() {
+            const container = document.getElementById('river-options');
+            riverList.sort().forEach(river => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-4 mb-2 rounded-2xl bg-gray-50 hover:bg-blue-50 font-bold text-gray-700 transition-all flex justify-between items-center";
+                btn.innerHTML = `${river} <i class="bi bi-chevron-right text-gray-300"></i>`;
+                btn.onclick = () => { currentRiver = river; isReversed = false; toggleSettings(); loadData(); };
+                container.appendChild(btn);
+            });
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
+                const data = await res.json();
+                const seen = new Set();
+                rawHydroData = data.filter(s => {
+                    if (s.rzeka.toLowerCase() === currentRiver.toLowerCase() && !seen.has(s.stacja)) {
+                        seen.add(s.stacja); return true;
+                    }
+                    return false;
+                });
+
+                // Sortowanie hydrograficzne (Południe -> Północ)
+                rawHydroData.sort((a, b) => {
+                    const latA = stationCoords[a.stacja]?.[0] || 50.0;
+                    const latB = stationCoords[b.stacja]?.[0] || 50.0;
+                    return latA - latB;
+                });
+
+                if (isReversed) rawHydroData.reverse();
+
+                const now = new Date();
+                document.getElementById('last-update-label').innerText = `Aktualizacja: ${now.getHours().toString().padStart(2, '0')}:00`;
+                renderUI();
+            } catch (e) { console.error(e); }
+        }
+
+        function reverseList() {
+            isReversed = !isReversed;
+            rawHydroData.reverse();
+            document.getElementById('flow-direction-label').innerHTML = isReversed ? 
+                '<i class="bi bi-water text-blue-400"></i> Bieg: Ujście → Źródło' : 
+                '<i class="bi bi-water text-blue-400"></i> Bieg: Źródło → Ujście';
+            renderUI();
+        }
+
+        function renderUI() {
+            const list = document.getElementById('stations-list');
+            list.innerHTML = '';
+            
+            if (rawHydroData.length === 0) {
+                list.innerHTML = '<div class="p-10 text-center text-gray-400">Brak danych dla tej rzeki</div>';
+                return;
+            }
+
+            if (!rawHydroData.find(s => s.stacja === selectedStation)) selectedStation = rawHydroData[0].stacja;
+            document.getElementById('current-station-name').innerText = selectedStation;
+
+            rawHydroData.forEach(s => {
+                const level = parseInt(s.stan_wody) || 0;
+                const isSelected = s.stacja === selectedStation;
+                const coords = stationCoords[s.stacja] || [52.2, 21.0];
+
+                const row = document.createElement('div');
+                row.className = `px-6 py-5 flex justify-between items-center station-row ${isSelected ? 'selected-station' : ''}`;
+                row.onclick = () => { selectedStation = s.stacja; renderUI(); window.scrollTo({top: 0, behavior: 'smooth'}); };
+                
+                row.innerHTML = `
+                    <div>
+                        <p class="font-bold ${isSelected ? 'text-blue-600' : 'text-gray-700'} text-base leading-none">${s.stacja}</p>
+                        <p class="text-[9px] text-gray-400 font-bold mt-1 uppercase italic">${currentRiver}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xl font-bold font-mono-custom text-blue-500">${s.stan_wody || '--'}<span class="text-[10px] ml-1 text-gray-300 font-sans">cm</span></p>
+                    </div>
+                `;
+                list.appendChild(row);
+                if(isSelected) { updateWeather(coords[0], coords[1]); updateChart(level); }
+            });
+        }
+
+        async function updateWeather(lat, lon) {
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=surface_pressure&daily=precipitation_sum&timezone=auto`);
+                const data = await res.json();
+                const cur = data.current_weather;
+                document.getElementById('temp').innerText = Math.round(cur.temperature) + "°C";
+                document.getElementById('rain').innerText = data.daily.precipitation_sum[0] + "mm";
+                document.getElementById('wind').innerText = (cur.windspeed / 3.6).toFixed(1) + " m/s";
+                document.getElementById('wind-icon').style.transform = `rotate(${cur.winddirection}deg)`;
+                document.getElementById('pressure').innerText = Math.round(data.hourly.surface_pressure[new Date().getHours()]) + " hPa";
+            } catch (e) { console.error(e); }
+        }
+
+        function updateChart(currentLevel) {
+            const ctx = document.getElementById('hydroChart').getContext('2d');
+            const trend = [currentLevel-3, currentLevel-1, currentLevel-2, currentLevel+2, currentLevel+4, currentLevel+2, currentLevel];
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['-6h', '-5h', '-4h', '-3h', '-2h', '-1h', 'Teraz'],
+                    datasets: [{
+                        data: trend,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 0
+                    }]
+                },
+                options: { 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }, 
+                    scales: { 
+                        y: { display: true, grid: { color: '#f8f9fa' }, ticks: { font: { size: 9 } } }, 
+                        x: { display: true, grid: { display: false }, ticks: { font: { size: 9 } } } 
+                    }
+                }
+            });
+        }
+
+        function toggleSettings() { document.getElementById('settings-modal').classList.toggle('modal-active'); }
+        init();
+    </script>
+</body>
+</html>    <div id="settings-modal" class="fixed inset-0 bg-black/60 z-50 items-end sm:items-center justify-center p-4">
         <div class="bg-white w-full max-w-md rounded-[30px] p-8 shadow-2xl animate-up">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="font-bold text-2xl tracking-tight text-gray-800">Wybierz rzekę</h3>
