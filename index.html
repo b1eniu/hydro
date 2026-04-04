@@ -2,43 +2,44 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>hydroAPP Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
-        body { background-color: #f8f9fa; -webkit-tap-highlight-color: transparent; font-family: sans-serif; }
+        body { background-color: #f8f9fa; font-family: -apple-system, system-ui, sans-serif; overflow-x: hidden; }
         .card-custom { background: white; border-radius: 24px; box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05); }
         .chart-wrapper { position: relative; height: 160px; width: 100%; }
         .station-row { transition: background 0.2s; border-left: 4px solid transparent; }
         .selected-station { background-color: #f0f7ff !important; border-left-color: #3b82f6 !important; }
         
+        /* EKRAN USTAWIEŃ - FULLSCREEN OVERLAY */
         #settings-screen { 
             display: none; 
             position: fixed; 
-            inset: 0; 
+            top: 0; left: 0; right: 0; bottom: 0;
             background: white; 
-            z-index: 100; 
+            z-index: 9999; 
             flex-direction: column;
+            padding: 24px;
         }
         .settings-active { display: flex !important; }
+
+        .status-warning { color: #f97316 !important; }
+        .status-alarm { color: #ef4444 !important; }
 
         .reverse-btn { 
             display: flex; 
             align-items: center; 
             gap: 4px; 
-            padding: 4px 8px; 
+            padding: 4px 10px; 
             background: #f3f4f6; 
-            border-radius: 8px; 
+            border-radius: 10px; 
             font-size: 10px; 
             font-weight: 800; 
             color: #374151;
         }
-
-        /* Kolory stanów */
-        .status-warning { color: #f97316 !important; } /* Pomarańczowy */
-        .status-alarm { color: #ef4444 !important; }    /* Czerwony */
     </style>
 </head>
 <body class="pb-10">
@@ -48,10 +49,19 @@
             <span id="last-update" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Aktualizacja: --:--</span>
         </div>
         <h1 class="font-black text-xl italic tracking-tighter">hydro<span class="text-blue-600">APP</span></h1>
-        <button onclick="toggleSettings()" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+        <button onclick="openSettings()" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shadow-sm active:scale-90 transition-transform">
             <i class="bi bi-gear-fill text-gray-600"></i>
         </button>
     </header>
+
+    <div id="settings-screen">
+        <div class="flex justify-between items-center mb-8">
+            <h3 class="text-2xl font-black tracking-tight italic text-gray-800">Wybierz rzekę</h3>
+            <button onclick="closeSettings()" class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-3xl font-light">&times;</button>
+        </div>
+        <div id="river-grid" class="grid grid-cols-2 gap-3 overflow-y-auto pb-10">
+            </div>
+    </div>
 
     <main class="px-4 max-w-2xl mx-auto space-y-6">
         <div class="text-center">
@@ -78,6 +88,162 @@
             </div>
         </div>
 
+        <div class="card-custom p-5">
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4 italic">Trend poziomu wody (24h)</p>
+            <div class="chart-wrapper">
+                <canvas id="hydroChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card-custom overflow-hidden border border-gray-100">
+            <div class="bg-gray-50 px-6 py-3 border-b border-gray-100 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <span id="dir-label" class="text-[9px] font-black text-gray-500 uppercase">Kierunek: Źródło ➔ Ujście</span>
+                    <button onclick="handleReverse()" class="reverse-btn active:bg-blue-100 transition-colors">
+                        <i class="bi bi-arrow-down-up"></i> ODWRÓĆ
+                    </button>
+                </div>
+            </div>
+            <div id="list-container" class="divide-y divide-gray-50"></div>
+        </div>
+    </main>
+
+    <script>
+        const rivers = ["Wisła", "Odra", "Warta", "Bug", "Narew", "San", "Noteć", "Pilica", "Wieprz", "Bóbr", "Łyna", "Nysa Łużycka", "Wkra", "Dunajec", "Brda", "Prosna", "Drwęca", "Wisłok", "Wda", "Drawa", "Nysa Kłodzka", "Poprad", "Pasłęka", "Rega", "Bzura"];
+        
+        let hydroData = [];
+        let activeRiver = "Wisła";
+        let activeStation = "Warszawa-Bulwary";
+        let isDescending = false;
+        let chartObj = null;
+
+        function openSettings() { document.getElementById('settings-screen').classList.add('settings-active'); }
+        function closeSettings() { document.getElementById('settings-screen').classList.remove('settings-active'); }
+
+        function renderRiverGrid() {
+            const grid = document.getElementById('river-grid');
+            grid.innerHTML = '';
+            rivers.sort().forEach(r => {
+                const b = document.createElement('button');
+                b.className = "p-5 rounded-2xl bg-gray-50 text-sm font-bold text-gray-700 text-left hover:bg-blue-600 hover:text-white transition-all border border-gray-100";
+                b.innerText = r;
+                b.onclick = () => { activeRiver = r; isDescending = false; closeSettings(); fetchData(); };
+                grid.appendChild(b);
+            });
+        }
+
+        async function fetchData() {
+            try {
+                const res = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
+                const data = await res.json();
+                hydroData = data.filter(s => s.rzeka.toLowerCase() === activeRiver.toLowerCase());
+                hydroData.sort((a, b) => parseInt(a.id_stacji) - parseInt(b.id_stacji));
+                if (isDescending) hydroData.reverse();
+                
+                document.getElementById('last-update').innerText = `Aktualizacja: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+                updateUI();
+            } catch (e) { console.error("API Error"); }
+        }
+
+        function handleReverse() {
+            isDescending = !isDescending;
+            hydroData.reverse();
+            document.getElementById('dir-label').innerText = isDescending ? "Kierunek: Ujście ➔ Źródło" : "Kierunek: Źródło ➔ Ujście";
+            updateUI();
+        }
+
+        function updateUI() {
+            const container = document.getElementById('list-container');
+            container.innerHTML = '';
+            document.getElementById('river-display').innerText = activeRiver;
+
+            if (hydroData.length === 0) {
+                container.innerHTML = '<p class="p-10 text-center text-gray-400">Brak danych</p>';
+                return;
+            }
+
+            if (!hydroData.find(s => s.stacja === activeStation)) activeStation = hydroData[0].stacja;
+            document.getElementById('station-display').innerText = activeStation;
+
+            hydroData.forEach(s => {
+                const isSel = s.stacja === activeStation;
+                const currentLevel = parseInt(s.stan_wody) || 0;
+                const warnLevel = parseInt(s.stan_ostrzegawczy) || 9999;
+                const alarmLevel = parseInt(s.stan_alarmowy) || 9999;
+
+                let statusClass = "text-blue-600";
+                if (currentLevel >= alarmLevel) statusClass = "status-alarm";
+                else if (currentLevel >= warnLevel) statusClass = "status-warning";
+
+                const row = document.createElement('div');
+                row.className = `station-row px-6 py-5 flex justify-between items-center cursor-pointer ${isSel ? 'selected-station' : ''}`;
+                row.onclick = () => { activeStation = s.stacja; updateUI(); window.scrollTo({top: 0, behavior: 'smooth'}); };
+                
+                row.innerHTML = `
+                    <div>
+                        <p class="font-bold text-gray-800 text-base tracking-tight">${s.stacja}</p>
+                        <div class="flex gap-2 mt-1">
+                            <span class="text-[9px] font-bold text-orange-400 uppercase">Ostrz: ${s.stan_ostrzegawczy || '--'}</span>
+                            <span class="text-[9px] font-bold text-red-500 uppercase">Alarm: ${s.stan_alarmowy || '--'}</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xl font-black font-mono ${statusClass}">${s.stan_wody || '--'}</span>
+                        <span class="text-[10px] text-gray-300 font-bold ml-1 uppercase">cm</span>
+                    </div>
+                `;
+                container.appendChild(row);
+                if (isSel) {
+                    fetchWeather(52.2, 21.0); 
+                    renderChart(currentLevel);
+                }
+            });
+        }
+
+        async function fetchWeather(lat, lon) {
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=precipitation_sum&timezone=auto`);
+            const d = await res.json();
+            document.getElementById('temp').innerText = Math.round(d.current_weather.temperature) + "°C";
+            document.getElementById('rain').innerText = d.daily.precipitation_sum[0] + "mm";
+            document.getElementById('wind').innerText = (d.current_weather.windspeed / 3.6).toFixed(1) + "m/s";
+            document.getElementById('wind-icon').style.transform = `rotate(${d.current_weather.winddirection}deg)`;
+            document.getElementById('press').innerText = "1013hPa";
+        }
+
+        function renderChart(val) {
+            const ctx = document.getElementById('hydroChart').getContext('2d');
+            const dataTrend = [val-2, val-5, val-1, val+3, val+1, val-1, val];
+            if (chartObj) chartObj.destroy();
+            chartObj = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['', '', '', '', '', '', ''],
+                    datasets: [{
+                        data: dataTrend,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { display: false },
+                        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        renderRiverGrid();
+        fetchData();
+    </script>
+</body>
+</html>
         <div class="card-custom p-5">
             <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4 italic">Trend poziomu wody (24h)</p>
             <div class="chart-wrapper">
