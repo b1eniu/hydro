@@ -14,7 +14,6 @@
         .station-row { transition: background 0.2s; border-left: 4px solid transparent; }
         .selected-station { background-color: #f0f7ff !important; border-left-color: #3b82f6 !important; }
         
-        /* EKRAN USTAWIEŃ - FULLSCREEN OVERLAY */
         #settings-screen { 
             display: none; 
             position: fixed; 
@@ -49,7 +48,7 @@
             <span id="last-update" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Aktualizacja: --:--</span>
         </div>
         <h1 class="font-black text-xl italic tracking-tighter">hydro<span class="text-blue-600">APP</span></h1>
-        <button onclick="openSettings()" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shadow-sm active:scale-90 transition-transform">
+        <button onclick="openSettings()" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shadow-sm">
             <i class="bi bi-gear-fill text-gray-600"></i>
         </button>
     </header>
@@ -59,8 +58,7 @@
             <h3 class="text-2xl font-black tracking-tight italic text-gray-800">Wybierz rzekę</h3>
             <button onclick="closeSettings()" class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-3xl font-light">&times;</button>
         </div>
-        <div id="river-grid" class="grid grid-cols-2 gap-3 overflow-y-auto pb-10">
-            </div>
+        <div id="river-grid" class="grid grid-cols-2 gap-3 overflow-y-auto pb-10"></div>
     </div>
 
     <main class="px-4 max-w-2xl mx-auto space-y-6">
@@ -78,6 +76,93 @@
                 <i class="bi bi-droplets-fill text-blue-500"></i>
                 <p id="rain" class="text-[11px] font-black mt-1">--mm</p>
             </div>
+            <div class="card-custom p-3 text-center border border-gray-50">
+                <i id="wind-icon" class="bi bi-wind text-blue-500"></i>
+                <p id="wind" class="text-[11px] font-black mt-1">--m/s</p>
+            </div>
+            <div class="card-custom p-3 text-center border border-gray-50">
+                <i class="bi bi-speedometer text-blue-500"></i>
+                <p id="press" class="text-[11px] font-black mt-1">--hPa</p>
+            </div>
+        </div>
+
+        <div class="card-custom p-5">
+            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4 italic">Trend poziomu wody (24h)</p>
+            <div class="chart-wrapper">
+                <canvas id="hydroChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card-custom overflow-hidden border border-gray-100">
+            <div class="bg-gray-50 px-6 py-3 border-b border-gray-100 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <span id="dir-label" class="text-[9px] font-black text-gray-500 uppercase">Kierunek: Źródło ➔ Ujście</span>
+                    <button onclick="handleReverse()" class="reverse-btn active:bg-blue-100 transition-colors">
+                        <i class="bi bi-arrow-down-up"></i> ODWRÓĆ
+                    </button>
+                </div>
+            </div>
+            <div id="list-container" class="divide-y divide-gray-50"></div>
+        </div>
+    </main>
+
+    <script>
+        // Dodana Radomka do listy
+        const rivers = ["Wisła", "Odra", "Warta", "Bug", "Narew", "San", "Noteć", "Pilica", "Wieprz", "Bóbr", "Łyna", "Nysa Łużycka", "Wkra", "Dunajec", "Brda", "Prosna", "Drwęca", "Wisłok", "Wda", "Drawa", "Nysa Kłodzka", "Poprad", "Pasłęka", "Rega", "Bzura", "Radomka"];
+        
+        let hydroData = [];
+        let activeRiver = "Wisła";
+        let activeStation = "Warszawa-Bulwary";
+        let isDescending = false;
+        let chartObj = null;
+
+        function openSettings() { document.getElementById('settings-screen').classList.add('settings-active'); }
+        function closeSettings() { document.getElementById('settings-screen').classList.remove('settings-active'); }
+
+        function renderRiverGrid() {
+            const grid = document.getElementById('river-grid');
+            grid.innerHTML = '';
+            rivers.sort().forEach(r => {
+                const b = document.createElement('button');
+                b.className = "p-5 rounded-2xl bg-gray-50 text-sm font-bold text-gray-700 text-left hover:bg-blue-600 hover:text-white transition-all border border-gray-100";
+                b.innerText = r;
+                b.onclick = () => { activeRiver = r; isDescending = false; closeSettings(); fetchData(); };
+                grid.appendChild(b);
+            });
+        }
+
+        async function fetchData() {
+            try {
+                const res = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
+                const data = await res.json();
+                
+                hydroData = data.filter(s => s.rzeka.toLowerCase() === activeRiver.toLowerCase());
+                hydroData.sort((a, b) => parseInt(a.id_stacji) - parseInt(b.id_stacji));
+                if (isDescending) hydroData.reverse();
+                
+                updateUI();
+                document.getElementById('last-update').innerText = `Aktualizacja: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+            } catch (e) { console.error("API Error"); }
+        }
+
+        function handleReverse() {
+            isDescending = !isDescending;
+            hydroData.reverse();
+            document.getElementById('dir-label').innerText = isDescending ? "Kierunek: Ujście ➔ Źródło" : "Kierunek: Źródło ➔ Ujście";
+            updateUI();
+        }
+
+        function updateUI() {
+            const container = document.getElementById('list-container');
+            container.innerHTML = '';
+            document.getElementById('river-display').innerText = activeRiver;
+
+            if (hydroData.length === 0) {
+                container.innerHTML = '<p class="p-10 text-center text-gray-400">Brak danych dla rzeki ' + activeRiver + '</p>';
+                return;
+            }
+
+            if (!            </div>
             <div class="card-custom p-3 text-center border border-gray-50">
                 <i id="wind-icon" class="bi bi-wind text-blue-500"></i>
                 <p id="wind" class="text-[11px] font-black mt-1">--m/s</p>
