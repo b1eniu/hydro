@@ -3,6 +3,7 @@ hydro
 lekkie narzędzie webowe stworzone z myślą o szybkim i przejrzystym dostępie do danych hydrologicznych. Aplikacja pobiera dane w czasie rzeczywistym bezpośrednio z publicznego API IMGW, prezentując je w nowoczesnej, mobilnej formie.
 
 Funkcje
+
 Dane w czasie rzeczywistym: Aktualne odczyty poziomu wód dla głównych rzek Polski (Wisła, Odra, Radomka i inne).
 Inteligentna Lista: Podgląd 7 stacji wokół wybranego punktu (4 powyżej, 2 poniżej) dla lepszego kontekstu hydrologicznego.
 Wizualizacja trendów: Interaktywne wykresy z możliwością zmiany skali czasowej (6h, 12h, 24h).
@@ -11,6 +12,7 @@ Personalizacja: Aplikacja zapamiętuje ostatnio przeglądaną stację oraz kieru
 Pogoda: Zintegrowany podgląd temperatury, opadów i wiatru dla wybranej lokalizacji.
 
 Technologia
+
 Aplikacja została zbudowana jako Single Page Application (SPA) przy użyciu:
 HTML5 / Tailwind CSS – dla responsywnego i nowoczesnego interfejsu.
 JavaScript (ES6+) – obsługa logiki i dynamicznego renderowania.
