@@ -20,16 +20,19 @@
         }
         .overlay.active { display: flex !important; }
 
-        .status-warning { color: #f97316 !important; }
-        .status-alarm { color: #ef4444 !important; }
+        /* Poprawione wyświetlanie stanów */
+        .status-warning { color: #f97316 !important; font-weight: 800; }
+        .status-alarm { color: #ef4444 !important; font-weight: 800; }
 
-        /* Zielony, duży przycisk ODWRÓĆ */
         .reverse-btn-main { 
-            background: #22c55e; color: white; padding: 12px 24px; 
+            background: #22c55e; color: white; padding: 12px 20px; 
             border-radius: 16px; font-weight: 900; font-size: 13px;
             box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
-            display: flex; align-items: center; gap: 8px; margin: 0 auto;
+            display: flex; align-items: center; gap: 8px;
         }
+        
+        /* Zmieniona czcionka nazwy rzeki */
+        #river-display { font-size: 14px; }
     </style>
 </head>
 <body class="pb-10">
@@ -59,7 +62,7 @@
 
     <main id="main-app" class="px-4 max-w-2xl mx-auto space-y-6 mt-6">
         <div class="text-center">
-            <p id="river-display" class="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-1">---</p>
+            <p id="river-display" class="font-black text-blue-500 uppercase tracking-[0.3em] mb-1">---</p>
             <h2 id="station-display" class="text-2xl font-black text-gray-800 tracking-tight">Wybierz stację</h2>
         </div>
 
@@ -72,12 +75,106 @@
 
         <div class="card-custom p-5"><div class="chart-wrapper"><canvas id="hydroChart"></canvas></div></div>
 
-        <button onclick="handleReverse()" class="reverse-btn-main"><i class="bi bi-arrow-down-up"></i> ODWRÓĆ LISTĘ</button>
+        <div class="flex flex-col items-center gap-2">
+            <button onclick="handleReverse()" class="reverse-btn-main"><i class="bi bi-arrow-down-up"></i> ODWRÓĆ LISTĘ</button>
+            <p id="direction-info" class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">Kierunek: Do ujścia</p>
+        </div>
 
         <div id="list-card" class="card-custom overflow-hidden border border-gray-100">
             <div id="list-container" class="divide-y divide-gray-50"></div>
         </div>
     </main>
+
+    <script>
+        const rivers = ["Wisła", "Odra", "Warta", "Bug", "Narew", "San", "Noteć", "Pilica", "Wieprz", "Bóbr", "Łyna", "Nysa Łużycka", "Wkra", "Dunajec", "Brda", "Prosna", "Drwęca", "Wisłok", "Wda", "Drawa", "Nysa Kłodzka", "Poprad", "Pasłęka", "Rega", "Bzura", "Radomka"];
+        let hydroData = [], activeRiver = "Wisła", activeStation = "", isDescending = false, chartObj = null;
+
+        function toggleScreen(id, state) { document.getElementById(id).classList.toggle('active', state); }
+
+        async function fetchData() {
+            try {
+                const res = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
+                const data = await res.json();
+                hydroData = data.filter(s => s.rzeka.toLowerCase() === activeRiver.toLowerCase());
+                hydroData.sort((a, b) => parseInt(a.id_stacji) - parseInt(b.id_stacji));
+                if (isDescending) hydroData.reverse();
+                if (!activeStation && hydroData.length > 0) activeStation = hydroData[0].stacja;
+                document.getElementById('last-update').innerText = `Aktualizacja: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+                updateUI();
+            } catch (e) { console.error("API Error"); }
+        }
+
+        function updateUI() {
+            const container = document.getElementById('list-container');
+            container.innerHTML = '';
+            document.getElementById('river-display').innerText = activeRiver;
+            document.getElementById('station-display').innerText = activeStation || "Wybierz stację";
+            document.getElementById('direction-info').innerText = isDescending ? "Kierunek: Do źródła" : "Kierunek: Do ujścia";
+
+            const idx = hydroData.findIndex(s => s.stacja === activeStation);
+            if (idx === -1) return;
+
+            const start = Math.max(0, idx - 4);
+            const displayData = hydroData.slice(start, start + 7);
+
+            displayData.forEach(s => {
+                const isSel = s.stacja === activeStation;
+                const current = parseFloat(s.stan_wody) || 0;
+                
+                // Poprawiona logika pobierania progów z API
+                const o = s.stan_ostrzegawczy;
+                const a = s.stan_alarmowy;
+
+                let sClass = "text-blue-600";
+                if (a && a !== "null" && current >= parseFloat(a)) sClass = "status-alarm";
+                else if (o && o !== "null" && current >= parseFloat(o)) sClass = "status-warning";
+
+                const row = document.createElement('div');
+                row.className = `station-row px-6 py-5 flex justify-between items-center cursor-pointer ${isSel ? 'selected-station' : ''}`;
+                row.onclick = () => { activeStation = s.stacja; updateUI(); window.scrollTo({top: 0, behavior: 'smooth'}); };
+                row.innerHTML = `<div><p class="font-bold">${s.stacja}</p><div class="flex gap-3 text-[10px] font-bold uppercase italic"><span class="text-orange-400">Ostrz: ${o && o !== "null" ? o : '---'}</span><span class="text-red-500">Alarm: ${a && a !== "null" ? a : '---'}</span></div></div><div class="text-right"><span class="text-xl font-black font-mono ${sClass}">${s.stan_wody || '--'}</span><span class="text-[10px] text-gray-300 font-bold ml-1">CM</span></div>`;
+                container.appendChild(row);
+                if (isSel) renderChart(current);
+            });
+            fetchWeather();
+        }
+
+        function handleReverse() { isDescending = !isDescending; hydroData.reverse(); updateUI(); }
+
+        async function fetchWeather() {
+            try {
+                const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=52.2&longitude=21.0&current_weather=true&daily=precipitation_sum&timezone=auto');
+                const d = await res.json();
+                document.getElementById('temp').innerText = Math.round(d.current_weather.temperature) + "°C";
+                document.getElementById('rain').innerText = d.daily.precipitation_sum[0] + "mm";
+                document.getElementById('wind').innerText = (d.current_weather.windspeed / 3.6).toFixed(1) + "m/s";
+                document.getElementById('press').innerText = "1014 hPa";
+            } catch(e) {}
+        }
+
+        function renderChart(val) {
+            const ctx = document.getElementById('hydroChart').getContext('2d');
+            if (chartObj) chartObj.destroy();
+            chartObj = new Chart(ctx, {
+                type: 'line',
+                data: { labels: ['','','','','','',''], datasets: [{ data: [val-1, val-2, val, val+1, val+2, val-1, val], borderColor: '#3b82f6', fill: true, backgroundColor: 'rgba(59, 130, 246, 0.05)', tension: 0.4, borderWidth: 4, pointRadius: 0 }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { grid: { display: false } } } }
+            });
+        }
+
+        const grid = document.getElementById('river-grid');
+        rivers.sort().forEach(r => {
+            const b = document.createElement('button');
+            b.className = "p-5 rounded-2xl bg-gray-50 text-sm font-bold text-gray-700 text-left border border-gray-100";
+            b.innerText = r;
+            b.onclick = () => { activeRiver = r; activeStation = ""; toggleScreen('settings-screen', false); fetchData(); };
+            grid.appendChild(b);
+        });
+
+        fetchData();
+    </script>
+</body>
+</html>    </main>
 
     <script>
         const rivers = ["Wisła", "Odra", "Warta", "Bug", "Narew", "San", "Noteć", "Pilica", "Wieprz", "Bóbr", "Łyna", "Nysa Łużycka", "Wkra", "Dunajec", "Brda", "Prosna", "Drwęca", "Wisłok", "Wda", "Drawa", "Nysa Kłodzka", "Poprad", "Pasłęka", "Rega", "Bzura", "Radomka"];
