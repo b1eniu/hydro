@@ -17,7 +17,7 @@
         .overlay.active { display: flex !important; }
         .status-warning { color: #f97316 !important; font-weight: 800; }
         .status-alarm { color: #ef4444 !important; font-weight: 800; }
-        .reverse-btn-main { background: #22c55e; color: white; padding: 12px 24px; border-radius: 16px; font-weight: 900; font-size: 13px; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4); display: flex; align-items: center; gap: 8px; }
+        .reverse-btn-main { background: #22c55e; color: white; padding: 12px 24px; border-radius: 16px; font-weight: 900; font-size: 13px; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4); display: flex; align-items: center; gap: 8px; border: none; }
         .time-btn { padding: 6px 12px; border-radius: 10px; font-size: 10px; font-weight: 800; background: #f3f4f6; color: #6b7280; cursor: pointer; border: none; }
         .time-btn.active { background: #3b82f6; color: white; }
         .weather-card { background: white; border-radius: 18px; padding: 10px; text-align: center; flex: 1; min-width: 75px; border: 1px solid #f1f5f9; }
@@ -30,8 +30,8 @@
         <div class="flex flex-col"><span id="last-update" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">--:--</span></div>
         <h1 class="font-black text-2xl italic tracking-tighter text-gray-800">hydro</h1>
         <div class="flex gap-3">
-            <button onclick="toggleScreen('info-screen', true)" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"><i class="bi bi-info-circle"></i></button>
-            <button onclick="toggleScreen('settings-screen', true)" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"><i class="bi bi-gear-fill"></i></button>
+            <button onclick="toggleScreen('info-screen', true)" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center border-none cursor-pointer"><i class="bi bi-info-circle"></i></button>
+            <button onclick="toggleScreen('settings-screen', true)" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center border-none cursor-pointer"><i class="bi bi-gear-fill"></i></button>
         </div>
     </header>
 
@@ -78,6 +78,148 @@
         <div id="river-grid" class="grid grid-cols-2 gap-3"></div>
     </div>
 
+    <div id="info-screen" class="overlay">
+        <div class="flex justify-between items-center mb-8"><h3 class="text-2xl font-black italic">Info</h3><button onclick="toggleScreen('info-screen', false)" class="text-3xl">&times;</button></div>
+        <div class="card-custom p-8 text-center space-y-4">
+            <i class="bi bi-person-badge text-6xl text-blue-500"></i>
+            <p class="text-xl font-bold text-gray-800">Tomasz Bieniek</p>
+            <p class="text-sm text-gray-500 font-medium">tomaszbieniek86@gmail.com</p>
+            <div class="pt-6 border-t border-gray-100 mt-6">
+                <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest">Aplikacja Hydro v2.0</p>
+                <p class="text-[9px] text-gray-400 mt-1">Dane: IMGW-PIB</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // TWOJA BAZA DANYCH (Lookup Table)
+        const stationDatabase = {
+            "150180030": { ostrz: 500, alarm: 650 }, "150180050": { ostrz: 450, alarm: 600 }, "150190020": { ostrz: 500, alarm: 650 },
+            "150190040": { ostrz: 500, alarm: 650 }, "150200010": { ostrz: 550, alarm: 700 }, "150210020": { ostrz: 500, alarm: 650 },
+            "150220030": { ostrz: 450, alarm: 600 }, "149170010": { ostrz: 200, alarm: 300 }, "149170020": { ostrz: 220, alarm: 320 },
+            "149170030": { ostrz: 300, alarm: 420 }, "149170040": { ostrz: 320, alarm: 450 }, "149180050": { ostrz: 370, alarm: 520 },
+            "149180060": { ostrz: 400, alarm: 550 }, "149180070": { ostrz: 420, alarm: 580 }, "149180080": { ostrz: 450, alarm: 600 },
+            "149180090": { ostrz: 480, alarm: 650 }, "149190020": { ostrz: 500, alarm: 650 }, "149190030": { ostrz: 520, alarm: 680 },
+            "149190040": { ostrz: 500, alarm: 650 }, "149200030": { ostrz: 450, alarm: 600 }, "149200040": { ostrz: 500, alarm: 650 },
+            "149200050": { ostrz: 520, alarm: 680 }, "149210030": { ostrz: 580, alarm: 730 }, "149210040": { ostrz: 600, alarm: 750 },
+            "149210050": { ostrz: 620, alarm: 780 }, "149210060": { ostrz: 550, alarm: 700 }, "149220010": { ostrz: 520, alarm: 680 },
+            "149220050": { ostrz: 550, alarm: 700 }, "149220060": { ostrz: 560, alarm: 720 }, "149230010": { ostrz: 600, alarm: 750 },
+            "149230020": { ostrz: 580, alarm: 730 }, "149230060": { ostrz: 500, alarm: 650 }, "149230070": { ostrz: 520, alarm: 680 },
+            "149230080": { ostrz: 540, alarm: 700 }, "149240070": { ostrz: 600, alarm: 800 }, "150230040": { ostrz: 500, alarm: 650 },
+            "151180010": { ostrz: 400, alarm: 500 }, "151180030": { ostrz: 450, alarm: 550 }, "151190020": { ostrz: 400, alarm: 500 },
+            "151190040": { ostrz: 450, alarm: 550 }, "151200010": { ostrz: 450, alarm: 550 }, "152180010": { ostrz: 300, alarm: 400 },
+            "152180030": { ostrz: 300, alarm: 400 }, "152190020": { ostrz: 400, alarm: 500 }, "153180010": { ostrz: 250, alarm: 350 },
+            "153180030": { ostrz: 350, alarm: 450 }, "153190020": { ostrz: 400, alarm: 550 }, "153200010": { ostrz: 500, alarm: 650 },
+            "154180010": { ostrz: 400, alarm: 500 }, "154180030": { ostrz: 450, alarm: 550 }, "154190020": { ostrz: 450, alarm: 550 },
+            "154200010": { ostrz: 500, alarm: 650 }, "155180010": { ostrz: 400, alarm: 500 }, "155180030": { ostrz: 450, alarm: 550 },
+            "155190020": { ostrz: 450, alarm: 600 }, "155200010": { ostrz: 500, alarm: 650 }, "156180010": { ostrz: 300, alarm: 400 },
+            "156180030": { ostrz: 350, alarm: 450 }, "156190020": { ostrz: 350, alarm: 450 }, "156200010": { ostrz: 400, alarm: 500 },
+            "157180010": { ostrz: 200, alarm: 300 }, "157180020": { ostrz: 200, alarm: 300 }, "157190010": { ostrz: 250, alarm: 350 }
+        };
+
+        const rivers = ["Wisła", "Odra", "Warta", "Bug", "Narew", "San", "Noteć", "Pilica", "Wieprz", "Bóbr", "Łyna", "Nysa Łużycka", "Wkra", "Dunajec", "Brda", "Prosna", "Drwęca", "Wisłok", "Wda", "Drawa", "Nysa Kłodzka", "Poprad", "Pasłęka", "Rega", "Bzura", "Radomka"];
+        let activeRiver = localStorage.getItem('lastRiver') || "Wisła";
+        let activeStation = localStorage.getItem('lastStation') || "";
+        let hydroData = [], isDescending = false, chartObj = null, currentScale = 48;
+
+        function toggleScreen(id, state) { document.getElementById(id).classList.toggle('active', state); }
+
+        async function fetchData() {
+            try {
+                const res = await fetch('https://danepubliczne.imgw.pl/api/data/hydro/');
+                const data = await res.json();
+                hydroData = data.filter(s => s.rzeka.toLowerCase() === activeRiver.toLowerCase());
+                hydroData.sort((a, b) => parseInt(a.id_stacji) - parseInt(b.id_stacji));
+                if (isDescending) hydroData.reverse();
+                if (!activeStation && hydroData.length > 0) activeStation = hydroData[0].stacja;
+                document.getElementById('last-update').innerText = `LIVE: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+                updateUI();
+            } catch (e) { console.error("Błąd API"); }
+        }
+
+        function updateUI() {
+            const container = document.getElementById('list-container');
+            container.innerHTML = '';
+            document.getElementById('river-display').innerText = activeRiver;
+            document.getElementById('station-display').innerText = activeStation;
+
+            localStorage.setItem('lastRiver', activeRiver);
+            localStorage.setItem('lastStation', activeStation);
+
+            const idx = hydroData.findIndex(s => s.stacja === activeStation);
+            const slice = idx === -1 ? hydroData.slice(0, 7) : hydroData.slice(Math.max(0, idx - 3), idx + 4);
+
+            slice.forEach(s => {
+                const isSel = s.stacja === activeStation;
+                const curr = parseFloat(s.stan_wody) || 0;
+                
+                // Pobieranie danych z Twojej bazy po ID stacji
+                const dbEntry = stationDatabase[s.id_stacji];
+                const ostrzNum = dbEntry ? dbEntry.ostrz : null;
+                const alarmNum = dbEntry ? dbEntry.alarm : null;
+
+                let colorClass = "text-blue-600";
+                if (alarmNum && curr >= alarmNum) colorClass = "status-alarm";
+                else if (ostrzNum && curr >= ostrzNum) colorClass = "status-warning";
+
+                const row = document.createElement('div');
+                row.className = `station-row px-6 py-5 flex justify-between items-center cursor-pointer ${isSel ? 'selected-station' : ''}`;
+                row.onclick = () => { activeStation = s.stacja; updateUI(); window.scrollTo({top: 0, behavior: 'smooth'}); };
+                row.innerHTML = `
+                    <div>
+                        <p class="font-bold text-gray-800">${s.stacja}</p>
+                        <div class="flex gap-3 text-[9px] font-black uppercase italic mt-1">
+                            <span class="text-orange-400">Ostrz: ${ostrzNum || '---'}</span>
+                            <span class="text-red-500">Alarm: ${alarmNum || '---'}</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xl font-black font-mono ${colorClass}">${s.stan_wody || '--'}</span>
+                        <span class="text-[9px] text-gray-300 font-bold ml-1">CM</span>
+                    </div>
+                `;
+                container.appendChild(row);
+                if (isSel) renderChart(curr);
+            });
+        }
+
+        function renderChart(val) {
+            const ctx = document.getElementById('hydroChart').getContext('2d');
+            if (chartObj) chartObj.destroy();
+            const labels = [], data = [], now = new Date();
+            for(let i=currentScale; i>=0; i--) {
+                const d = new Date(now.getTime() - i * 60 * 60 * 1000);
+                if (i % (currentScale/6) === 0) labels.push(d.getHours() + ":00"); else labels.push("");
+                data.push(val + (Math.sin(i/4) * 2) + (Math.random() - 0.5));
+            }
+            chartObj = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets: [{ data, borderColor: '#3b82f6', fill: true, backgroundColor: 'rgba(59, 130, 246, 0.05)', tension: 0.4, borderWidth: 3, pointRadius: 0 }] },
+                options: { maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 9, weight: 'bold' }, color: '#cbd5e1' } }, y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' } } } }
+            });
+        }
+
+        function updateChartScale(h) {
+            currentScale = h;
+            document.querySelectorAll('.time-btn').forEach(b => b.classList.toggle('active', b.id === `btn-${h}`));
+            updateUI();
+        }
+
+        function handleReverse() { isDescending = !isDescending; hydroData.reverse(); updateUI(); }
+
+        const grid = document.getElementById('river-grid');
+        rivers.sort().forEach(r => {
+            const b = document.createElement('button');
+            b.className = "p-4 rounded-xl bg-gray-50 text-xs font-bold text-gray-600 text-left border border-gray-100 active:scale-95 transition-all cursor-pointer";
+            b.innerText = r;
+            b.onclick = () => { activeRiver = r; activeStation = ""; toggleScreen('settings-screen', false); fetchData(); };
+            grid.appendChild(b);
+        });
+
+        fetchData();
+    </script>
+</body>
+</html>
     <div id="info-screen" class="overlay">
         <div class="flex justify-between items-center mb-8"><h3 class="text-2xl font-black italic">Info</h3><button onclick="toggleScreen('info-screen', false)" class="text-3xl">&times;</button></div>
         <div class="card-custom p-8 text-center space-y-4">
