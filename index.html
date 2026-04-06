@@ -3,80 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>hydro 1.1</title>
-    
+    <title>Hydro App</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
-    <header class="p-6 flex justify-between items-center max-w-2xl mx-auto sticky top-0 bg-white/90 backdrop-blur-md z-50 border-b border-gray-100">
-        <div class="flex flex-col"><span id="last-update" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">--:--</span></div>
-        <h1 class="font-black text-2xl italic tracking-tighter text-gray-800">hydro</h1>
-        <div class="flex gap-3">
-            <button onclick="toggleScreen('info-screen', true)" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center border-none cursor-pointer"><i class="bi bi-info-circle"></i></button>
-            <button onclick="toggleScreen('settings-screen', true)" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center border-none cursor-pointer"><i class="bi bi-gear-fill"></i></button>
+<body class="bg-gray-50 flex flex-col min-h-screen">
+
+    <header class="bg-white sticky top-0 z-50 border-b border-gray-50">
+        <div class="max-w-4xl mx-auto px-4 py-6 flex items-center justify-between">
+            
+            <div id="river-selector-trigger" class="flex flex-col cursor-pointer active:opacity-50 transition-opacity">
+                <div class="flex items-center gap-2">
+                    <span id="river-display" class="text-3xl font-black text-black leading-tight">Wisła</span>
+                    <span id="station-display" class="text-3xl font-black text-black leading-tight">Dęblin</span>
+                    <svg class="w-6 h-6 text-gray-300 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+            </div>
+
+            <div class="absolute left-1/2 -translate-x-1/2 text-center">
+                <span class="block text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Aktualizacja</span>
+                <span id="last-update" class="text-lg font-black text-gray-700 leading-none">--:--</span>
+            </div>
+
+            <div id="reverse-btn" class="flex items-center gap-3 cursor-pointer active:scale-95 transition-all group">
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] font-black uppercase text-gray-400 tracking-tighter mb-1">Kierunek</span>
+                    <span id="dir-text" class="text-sm font-black text-black leading-none">Do ujścia</span>
+                </div>
+                <div class="text-black group-hover:text-blue-600 transition-colors">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                    </svg>
+                </div>
+            </div>
         </div>
     </header>
 
-    <div class="px-4 max-w-2xl mx-auto mt-4">
-        <div id="weather-bar" class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            <div class="weather-card"><i class="bi bi-thermometer-sun text-orange-500 text-lg"></i><p id="w-temp" class="text-[11px] font-black mt-1">--°C</p></div>
-            <div class="weather-card"><i class="bi bi-cloud-drizzle-fill text-blue-400 text-lg"></i><p id="w-rain" class="text-[11px] font-black mt-1">--mm</p></div>
-            <div class="weather-card"><i class="bi bi-wind text-teal-500 text-lg"></i><p id="w-wind" class="text-[11px] font-black mt-1">--m/s</p></div>
-            <div class="weather-card"><i class="bi bi-speedometer text-purple-500 text-lg"></i><p id="w-press" class="text-[11px] font-black mt-1">--hPa</p></div>
-        </div>
-    </div>
+    <main class="p-4 max-w-4xl mx-auto flex-grow w-full">
+        <div class="weather-grid mb-6">
+            <div class="weather-card">
+                <span class="weather-label">temp</span>
+                <div class="weather-value-wrapper">
+                    <span id="w-temp" class="weather-value">--°C</span>
+                </div>
+            </div>
+            
+            <div class="weather-card">
+                <span class="weather-label">opady</span>
+                <div class="weather-value-wrapper">
+                    <span id="w-rain" class="weather-value">--mm</span>
+                </div>
+            </div>
 
-    <main class="px-4 max-w-2xl mx-auto space-y-6 mt-4">
-        <div class="text-center">
-            <p id="river-display" class="text-blue-500 uppercase tracking-[0.3em] text-[10px] font-black mb-1">---</p>
-            <h2 id="station-display" class="text-2xl font-black text-gray-800 tracking-tight italic">Wczytywanie...</h2>
+            <div class="weather-card">
+                <span class="weather-label">kierunek</span>
+                <div class="weather-value-wrapper">
+                    <div id="wind-direction-container" class="w-7 h-7 flex items-center justify-center transition-transform duration-500">
+                        <svg class="w-full h-full text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="10" stroke-width="1" stroke="#e2e8f0"/>
+                            <path d="M12 2L12 22M2 12L22 12" stroke="#e2e8f0" stroke-width="1"/>
+                            <path d="M12 3L15 8H9L12 3Z" fill="currentColor"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="weather-card">
+                <span class="weather-label">wiatr</span>
+                <div class="weather-value-wrapper">
+                    <span id="w-wind" class="weather-value">--m/s</span>
+                </div>
+            </div>
+
+            <div class="weather-card">
+                <span class="weather-label">ciśnienie</span>
+                <div class="weather-value-wrapper">
+                    <span id="w-press" class="weather-value text-[13px]">--hPa</span>
+                </div>
+            </div>
         </div>
 
-        <div class="card-custom p-5">
-            <div class="flex justify-between items-center mb-4">
-                <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest italic">Trend 48h</span>
-                <div class="flex gap-1">
+        <div class="card-custom p-6 mb-6">
+            <div class="flex justify-between items-center mb-6">
+                <span class="text-[11px] font-black text-gray-400 uppercase italic tracking-widest">Trend Poziomu Wody</span>
+                <div class="flex gap-1 bg-gray-100 p-1 rounded-xl">
                     <button id="btn-6" class="time-btn">6H</button>
                     <button id="btn-12" class="time-btn">12H</button>
                     <button id="btn-24" class="time-btn">24H</button>
                     <button id="btn-48" class="time-btn active">48H</button>
                 </div>
             </div>
-            <div class="chart-wrapper"><canvas id="hydroChart"></canvas></div>
+            <div class="chart-wrapper">
+                <canvas id="hydroChart"></canvas>
+            </div>
         </div>
 
-        <div class="flex flex-col items-center gap-3">
-            <button id="reverse-btn" class="reverse-btn-main"><i class="bi bi-arrow-down-up"></i> ODWRÓĆ LISTĘ</button>
-            <p id="dir-text" class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">Kierunek: Do ujścia</p>
-        </div>
-
-        <div class="card-custom overflow-hidden border border-gray-100">
-            <div id="list-container" class="flex flex-col"></div>
-        </div>
+        <div id="list-container" class="card-custom mb-10"></div>
     </main>
 
     <div id="settings-screen" class="overlay">
-        <div class="flex justify-between items-center mb-8"><h3 class="text-2xl font-black italic">Rzeka</h3><button onclick="toggleScreen('settings-screen', false)" class="text-3xl">&times;</button></div>
-        <div id="river-grid" class="grid grid-cols-2 gap-3"></div>
-    </div>
-
-    <div id="info-screen" class="overlay">
-        <div class="flex justify-between items-center mb-8"><h3 class="text-2xl font-black italic">Info</h3><button onclick="toggleScreen('info-screen', false)" class="text-3xl">&times;</button></div>
-        <div class="card-custom p-8 text-center space-y-4">
-            <i class="bi bi-person-badge text-6xl text-blue-500"></i>
-            <p class="text-xl font-bold text-gray-800">Tomasz Bieniek</p>
-            <p class="text-sm text-gray-500 font-medium">tomaszbieniek86@gmail.com</p>
-            <div class="pt-6 border-t border-gray-100 mt-6">
-                <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest">Aplikacja Hydro v1.1</p>
-                <p class="text-[9px] text-gray-400 mt-1">Dane: IMGW-PIB</p>
+        <div class="max-w-4xl mx-auto w-full">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-black text-black uppercase italic">Rzeki</h2>
+                <button id="close-settings" class="w-12 h-12 bg-gray-100 rounded-full font-bold flex items-center justify-center active:scale-90 transition-transform">✕</button>
             </div>
+            <div id="river-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
         </div>
     </div>
 
     <script type="module" src="js/main.js"></script>
-    </body>
+</body>
 </html>

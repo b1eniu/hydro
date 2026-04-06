@@ -19,7 +19,8 @@ export async function fetchHydroData() {
  */
 export async function fetchWeatherData(lat = 52.2297, lon = 21.0122) {
     try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,surface_pressure,wind_speed_10m&wind_speed_unit=ms`;
+        // Dodano wind_direction_10m do zapytania
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,surface_pressure,wind_speed_10m,wind_direction_10m&wind_speed_unit=ms`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Błąd połączenia z API Pogody');
         return await response.json();

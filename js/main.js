@@ -1,4 +1,3 @@
-// js/main.js
 import { STATION_DB, RIVERS_LIST } from './config.js';
 import { fetchHydroData, fetchWeatherData } from './api.js';
 import { renderHydroChart } from './chart.js';
@@ -26,8 +25,10 @@ async function refreshAllData() {
 
     // Pobieranie pogody dla aktualnie wybranej stacji przy starcie
     const dbEntry = STATION_DB[activeStation.toUpperCase()];
-    const weather = await fetchWeatherData(dbEntry?.lat, dbEntry?.lon);
-    if (weather) updateWeatherUI(weather.current);
+    if (dbEntry) {
+        const weather = await fetchWeatherData(dbEntry.lat, dbEntry.lon);
+        if (weather) updateWeatherUI(weather.current);
+    }
 
     updateUI();
     document.getElementById('last-update').innerText = `LIVE: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
@@ -35,6 +36,7 @@ async function refreshAllData() {
 
 function updateUI() {
     const container = document.getElementById('list-container');
+    if (!container) return;
     container.innerHTML = '';
     
     document.getElementById('river-display').innerText = activeRiver;
@@ -52,10 +54,12 @@ function updateUI() {
         const dbEntry = STATION_DB[s.stacja.toUpperCase()];
         const ostrz = dbEntry ? dbEntry.ostrz : '---';
         const alarm = dbEntry ? dbEntry.alarm : '---';
+        const ostrzColor = dbEntry ? dbEntry.color : '#999';
+        const alarmColor = dbEntry ? dbEntry.alarmColor : '#999';
 
         let colorClass = "text-blue-600";
-        if (alarm !== '---' && curr >= alarm) colorClass = "status-alarm";
-        else if (ostrz !== '---' && curr >= ostrz) colorClass = "status-warning";
+        if (alarm !== '---' && curr >= alarm) colorClass = "status-alarm"; 
+        else if (ostrz !== '---' && curr >= ostrz) colorClass = "status-warning"; 
 
         const row = document.createElement('div');
         row.className = `station-row px-6 py-5 flex justify-between items-center cursor-pointer ${isSel ? 'selected-station' : ''}`;
@@ -63,7 +67,6 @@ function updateUI() {
         row.onclick = async () => { 
             activeStation = s.stacja; 
             
-            // Pobierz pogodę dla klikniętej stacji
             if (dbEntry && dbEntry.lat) {
                 const newWeather = await fetchWeatherData(dbEntry.lat, dbEntry.lon);
                 if (newWeather) updateWeatherUI(newWeather.current);
@@ -76,9 +79,9 @@ function updateUI() {
         row.innerHTML = `
             <div>
                 <p class="font-bold text-gray-800">${s.stacja}</p>
-                <div class="flex gap-3 text-[9px] font-black uppercase italic mt-1">
-                    <span class="text-orange-400">Ostrz: ${ostrz}</span>
-                    <span class="text-red-500">Alarm: ${alarm}</span>
+                <div class="flex gap-3 text-[9px] font-bold uppercase italic mt-1">
+                    <span style="color: ${ostrzColor}">Ostrz: ${ostrz}</span>
+                    <span style="color: ${alarmColor}">Alarm: ${alarm}</span>
                 </div>
             </div>
             <div class="text-right">
@@ -90,21 +93,34 @@ function updateUI() {
 
         if (isSel) {
             const ctx = document.getElementById('hydroChart');
-            const mockValues = Array.from({length: currentScale + 1}, () => curr + (Math.random() * 4 - 2));
-            renderHydroChart(ctx, mockValues, currentScale);
+            if (ctx) {
+                const mockValues = Array.from({length: currentScale + 1}, () => curr + (Math.random() * 4 - 2));
+                renderHydroChart(ctx, mockValues, currentScale);
+            }
         }
     });
 }
 
 function updateWeatherUI(w) {
-    document.getElementById('w-temp').innerText = `${Math.round(w.temperature_2m)}°C`;
-    document.getElementById('w-rain').innerText = `${w.precipitation.toFixed(1)}mm`;
-    document.getElementById('w-wind').innerText = `${w.wind_speed_10m.toFixed(1)}m/s`;
-    document.getElementById('w-press').innerText = `${Math.round(w.surface_pressure)}hPa`;
+    const tempEl = document.getElementById('w-temp');
+    const rainEl = document.getElementById('w-rain');
+    const windEl = document.getElementById('w-wind');
+    const pressEl = document.getElementById('w-press');
+    const arrow = document.getElementById('wind-direction-container');
+
+    if (tempEl) tempEl.innerText = `${Math.round(w.temperature_2m)}°C`;
+    if (rainEl) rainEl.innerText = `${w.precipitation.toFixed(1)}mm`;
+    if (windEl) windEl.innerText = `${w.wind_speed_10m.toFixed(1)}m/s`;
+    if (pressEl) pressEl.innerText = `${Math.round(w.surface_pressure)}hPa`;
+    
+    if (arrow && w.wind_direction_10m !== undefined) {
+        arrow.style.transform = `rotate(${w.wind_direction_10m}deg)`;
+    }
 }
 
 function renderRiverGrid() {
     const grid = document.getElementById('river-grid');
+    if (!grid) return;
     grid.innerHTML = '';
     RIVERS_LIST.sort().forEach(r => {
         const b = document.createElement('button');
@@ -121,24 +137,36 @@ function renderRiverGrid() {
 }
 
 function setupEventListeners() {
-    document.getElementById('reverse-btn').onclick = () => {
-        isDescending = !isDescending;
-        hydroData.reverse();
-        updateUI();
-        document.getElementById('dir-text').innerText = isDescending ? "Kierunek: Pod prąd" : "Kierunek: Do ujścia";
-    };
+    const reverseBtn = document.getElementById('reverse-btn');
+    if (reverseBtn) {
+        reverseBtn.onclick = () => {
+            isDescending = !isDescending;
+            hydroData.reverse();
+            updateUI();
+            document.getElementById('dir-text').innerText = isDescending ? "Pod prąd" : "Do ujścia";
+        };
+    }
+
+    const trigger = document.getElementById('river-selector-trigger');
+    if (trigger) {
+        trigger.onclick = () => window.toggleScreen('settings-screen', true);
+    }
 
     [6, 12, 24, 48].forEach(h => {
-        document.getElementById(`btn-${h}`).onclick = () => {
-            currentScale = h;
-            document.querySelectorAll('.time-btn').forEach(b => b.classList.toggle('active', b.id === `btn-${h}`));
-            updateUI();
-        };
+        const btn = document.getElementById(`btn-${h}`);
+        if (btn) {
+            btn.onclick = () => {
+                currentScale = h;
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.toggle('active', b.id === `btn-${h}`));
+                updateUI();
+            };
+        }
     });
 }
 
 window.toggleScreen = function(id, state) {
-    document.getElementById(id).classList.toggle('active', state);
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', state);
 };
 
 init();
