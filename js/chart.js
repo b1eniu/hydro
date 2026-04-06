@@ -1,56 +1,97 @@
 // js/chart.js
+let hydroChart = null;
 
-let chartObj = null;
-
-/**
- * Inicjalizuje lub aktualizuje wykres hydro
- */
-export function renderHydroChart(ctx, dataValues, currentScale = 48) {
-    // Jeśli wykres już istnieje, niszczymy go, aby stworzyć nowy (unikamy nakładania się)
-    if (chartObj) {
-        chartObj.destroy();
+export function renderHydroChart(ctx, values, hours, forecastValues = []) {
+    if (hydroChart) {
+        hydroChart.destroy();
     }
 
-    const labels = [];
-    const now = new Date();
-
-    // Generujemy etykiety czasu (np. 12:00, 18:00) w zależności od skali
-    for (let i = currentScale; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 60 * 60 * 1000);
-        if (i % (currentScale / 6) === 0) {
-            labels.push(d.getHours() + ":00");
+    // 1. Przygotowujemy historię (lewa strona)
+    const labels = Array.from({ length: values.length }, (_, i) => `-${values.length - 1 - i}h`);
+    
+    // 2. Przygotowujemy prognozę (prawa strona)
+    // Dynamicznie obliczamy ile punktów potrzebujemy, żeby wypełnić prawą połowę
+    // Zakładając, że historia ma 'values.length' punktów, prognoza musi mieć tyle samo.
+    const step = Math.ceil(hours / values.length) || 1;
+    const extendedForecast = [];
+    
+    for (let i = 0; i < values.length; i++) {
+        // Jeśli mamy realne dane z API, używamy ich, 
+        // jeśli się skończą - kontynuujemy ostatni trend
+        if (i < forecastValues.length) {
+            extendedForecast.push(forecastValues[i]);
         } else {
-            labels.push("");
+            const lastVal = extendedForecast.length > 0 ? extendedForecast[extendedForecast.length - 1] : values[values.length - 1];
+            const prevVal = extendedForecast.length > 1 ? extendedForecast[extendedForecast.length - 2] : values[values.length - 1];
+            const trend = lastVal - prevVal;
+            extendedForecast.push(lastVal + trend); // Kontynuacja trendu do krawędzi
         }
     }
 
-    chartObj = new Chart(ctx, {
+    const forecastLabels = Array.from({ length: values.length }, (_, i) => `+${(i + 1) * step}h`);
+    const allLabels = [...labels, ...forecastLabels];
+
+    // Dane do zestawów
+    const mainData = [...values, ...Array(values.length).fill(null)];
+    const forecastData = [
+        ...Array(values.length - 1).fill(null), 
+        values[values.length - 1], 
+        ...extendedForecast
+    ];
+
+    const minValue = Math.min(...values.filter(v => v !== null), ...forecastValues.filter(v => v !== null));
+    const maxValue = Math.max(...values.filter(v => v !== null), ...forecastValues.filter(v => v !== null));
+    const padding = Math.max((maxValue - minValue) * 0.4, 5);
+
+    hydroChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
-            datasets: [{
-                label: 'Poziom wody (cm)',
-                data: dataValues,
-                borderColor: '#3b82f6',
-                fill: true,
-                backgroundColor: 'rgba(59, 130, 246, 0.05)',
-                tension: 0.4,
-                borderWidth: 3,
-                pointRadius: 0
-            }]
+            labels: allLabels,
+            datasets: [
+                {
+                    label: 'Historia',
+                    data: mainData,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0
+                },
+                {
+                    label: 'Prognoza',
+                    data: forecastData,
+                    borderColor: '#3b82f6',
+                    borderDash: [6, 4],
+                    borderWidth: 2,
+                    pointRadius: (index) => index === values.length - 1 ? 0 : 2, // Ukrywamy kropkę na styku
+                    pointBackgroundColor: '#fff',
+                    fill: false,
+                    tension: 0.3
+                }
+            ]
         },
         options: {
+            responsive: true,
             maintainAspectRatio: false,
-            animation: { duration: 400 },
             plugins: { legend: { display: false } },
             scales: {
                 x: {
                     grid: { display: false },
-                    ticks: { font: { size: 9, weight: 'bold' }, color: '#cbd5e1' }
+                    ticks: { 
+                        maxRotation: 0, 
+                        autoSkip: true, 
+                        maxTicksLimit: 9,
+                        callback: function(val, index) {
+                            if (index === values.length - 1) return 'TERAZ';
+                            return this.getLabelForValue(val);
+                        }
+                    }
                 },
                 y: {
-                    grid: { color: '#f1f5f9' },
-                    ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' }
+                    suggestedMin: minValue - padding,
+                    suggestedMax: maxValue + padding,
+                    grid: { color: '#f3f4f6' }
                 }
             }
         }

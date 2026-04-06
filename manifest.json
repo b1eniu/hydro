@@ -1,0 +1,17 @@
+{
+  "short_name": "Hydro 1.2",
+  "name": "Hydro 1.2 - Monitoring Rzek",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3145/3145024.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
+  "description": "Monitorowanie stanu wody w polskich rzekach."
+}
