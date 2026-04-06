@@ -15,9 +15,10 @@ body {
 .chart-wrapper { position: relative; height: 350px; width: 100%; }
 
 #list-container {
-    max-height: 600px;           
-    overflow-y: auto;        
-    scrollbar-width: none;   
+    max-height: 520px; /* Wysokość dopasowana do ok. 7 stacji */
+    overflow-y: auto;
+    scrollbar-width: none;
+    scroll-behavior: smooth; /* Płynne przewijanie wewnątrz listy */
 }
 #list-container::-webkit-scrollbar { display: none; }
 
@@ -104,3 +105,10 @@ body {
     overflow-y: auto;
 }
 .overlay.active { display: flex !important; }
+#list-container {
+    cursor: grab;
+    user-select: none; /* Zapobiega zaznaczaniu tekstu podczas przesuwania */
+}
+#list-container:active {
+    cursor: grabbing;
+}

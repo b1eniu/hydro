@@ -5,165 +5,135 @@ import { renderHydroChart } from './chart.js';
 let activeRiver = localStorage.getItem('lastRiver') || "Wisła";
 let activeStation = localStorage.getItem('lastStation') || "";
 let hydroData = [];
-let isDescending = false;
+let allApiData = [];
 let currentScale = 48;
 
 async function init() {
     setupEventListeners();
     renderRiverGrid();
+    setupDragToScroll();
     await refreshAllData();
 }
 
-async function refreshAllData() {
-    try {
-        const allData = await fetchHydroData();
-        hydroData = allData.filter(s => s.rzeka.toLowerCase() === activeRiver.toLowerCase());
-        
-        hydroData.sort((a, b) => parseInt(a.id_stacji) - parseInt(b.id_stacji));
-        if (isDescending) hydroData.reverse();
-
-        if (!activeStation && hydroData.length > 0) activeStation = hydroData[0].stacja;
-
-        const dbEntry = STATION_DB[activeStation.toUpperCase()];
-        if (dbEntry) {
-            const weather = await fetchWeatherData(dbEntry.lat, dbEntry.lon);
-            if (weather && weather.current) updateWeatherUI(weather.current);
-        }
-
-        updateUI();
-        
-        const lastUpdateEl = document.getElementById('last-update');
-        if (lastUpdateEl) {
-            lastUpdateEl.innerText = `LIVE: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
-        }
-    } catch (err) {
-        console.error("Błąd odświeżania:", err);
-    }
+function setupDragToScroll() {
+    const slider = document.getElementById('list-container');
+    let isDown = false; let startY; let scrollTop;
+    slider.addEventListener('mousedown', (e) => {
+        isDown = true; slider.style.cursor = 'grabbing';
+        startY = e.pageY - slider.offsetTop; scrollTop = slider.scrollTop;
+    });
+    slider.addEventListener('mouseleave', () => { isDown = false; slider.style.cursor = 'grab'; });
+    slider.addEventListener('mouseup', () => { isDown = false; slider.style.cursor = 'grab'; });
+    slider.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const y = e.pageY - slider.offsetTop;
+        const walk = (y - startY) * 1.5;
+        slider.scrollTop = scrollTop - walk;
+    });
 }
 
-function updateUI() {
+async function refreshAllData() {
+    allApiData = await fetchHydroData();
+    hydroData = allApiData.filter(apiS => {
+        const dbEntry = STATION_DB[apiS.stacja.toUpperCase()];
+        return (dbEntry?.rzeka || apiS.rzeka).toLowerCase() === activeRiver.toLowerCase();
+    });
+    if (hydroData.length > 0 && (!activeStation || !hydroData.some(s => s.stacja === activeStation))) {
+        activeStation = hydroData[0].stacja;
+    }
+    updateUI();
+    document.getElementById('last-update').innerText = `LIVE: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+}
+
+async function updateUI() {
     const container = document.getElementById('list-container');
     if (!container) return;
     container.innerHTML = '';
     
     document.getElementById('river-display').innerText = activeRiver;
     document.getElementById('station-display').innerText = activeStation;
-
     localStorage.setItem('lastRiver', activeRiver);
     localStorage.setItem('lastStation', activeStation);
 
-    const idx = hydroData.findIndex(s => s.stacja === activeStation);
-    const slice = idx === -1 ? hydroData.slice(0, 7) : hydroData.slice(Math.max(0, idx - 3), idx + 4);
+    for (const s of hydroData) {
+        const name = s.stacja.toUpperCase();
+        const dbEntry = STATION_DB[name] || {};
+        const isSelected = s.stacja === activeStation;
+        const currVal = parseFloat(s.stan_wody);
 
-    slice.forEach(s => {
-        const isSel = s.stacja === activeStation;
-        const curr = parseFloat(s.stan_wody) || 0;
-        const dbEntry = STATION_DB[s.stacja.toUpperCase()];
-        
-        const ostrz = dbEntry ? dbEntry.ostrz : '---';
-        const alarm = dbEntry ? dbEntry.alarm : '---';
-
-        let colorClass = "text-blue-600";
-        if (alarm !== '---' && curr >= alarm) colorClass = "status-alarm"; 
-        else if (ostrz !== '---' && curr >= ostrz) colorClass = "status-warning"; 
+        let badgeBg = "#f0f7ff"; let textColor = "#3b82f6"; 
+        if (currVal >= dbEntry.alarm) { badgeBg = "#fff5f5"; textColor = dbEntry.alarmColor || "#f68686"; }
+        else if (currVal >= dbEntry.ostrz) { badgeBg = "#fffaf5"; textColor = dbEntry.color || "#fba96c"; }
 
         const row = document.createElement('div');
-        row.className = `station-row px-6 py-5 flex justify-between items-center cursor-pointer ${isSel ? 'selected-station' : ''}`;
-        
+        row.className = `station-row px-6 py-5 flex justify-between items-center cursor-pointer ${isSelected ? 'selected-station' : ''}`;
         row.onclick = async () => { 
-            activeStation = s.stacja; 
-            updateUI(); 
-            // Odświeżamy pogodę dla nowej stacji
-            const entry = STATION_DB[activeStation.toUpperCase()];
-            if (entry) {
-                const weather = await fetchWeatherData(entry.lat, entry.lon);
-                if (weather && weather.current) updateWeatherUI(weather.current);
-            }
+            activeStation = s.stacja;
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (dbEntry.lat) {
+                const weather = await fetchWeatherData(dbEntry.lat, dbEntry.lon);
+                if (weather) updateWeatherUI(weather.current);
+            }
+            updateUI(); 
         };
         
         row.innerHTML = `
-            <div>
+            <div class="min-w-0">
                 <p class="font-bold text-gray-800">${s.stacja}</p>
-                <div class="flex gap-3 text-[9px] font-bold uppercase italic mt-1">
-                    <span style="color: ${dbEntry?.color || '#999'}">Ostrz: ${ostrz}</span>
-                    <span style="color: ${dbEntry?.alarmColor || '#999'}">Alarm: ${alarm}</span>
+                <div class="flex gap-2 text-[9px] font-bold uppercase mt-1">
+                    <span style="color: ${dbEntry.color || '#94a3b8'}">Ostrz: ${dbEntry.ostrz || '--'}</span>
+                    <span style="color: ${dbEntry.alarmColor || '#94a3b8'}">Alarm: ${dbEntry.alarm || '--'}</span>
                 </div>
             </div>
-            <div class="text-right">
-                <span class="text-xl font-black font-mono ${colorClass}">${s.stan_wody || '--'}</span>
-                <span class="text-[9px] text-gray-300 font-bold ml-1">CM</span>
-            </div>
-        `;
+            <div class="shrink-0">
+                <div style="background-color: ${badgeBg}; padding: 6px 12px; border-radius: 14px; min-width: 70px; text-align: center;">
+                    <span class="text-xl font-black font-mono" style="color: ${textColor}">${s.stan_wody || '--'}</span>
+                    <span class="text-[9px] font-bold ml-0.5" style="color: ${textColor}">CM</span>
+                </div>
+            </div>`;
         container.appendChild(row);
 
-        if (isSel) {
-            const canvas = document.getElementById('hydroChart');
-            if (canvas) {
-                fetchHydroForecast(s.id_stacji).then(forecastData => {
-                    const trendDir = s.tendencja === "0" ? 1 : (s.tendencja === "1" ? -1 : 0);
-                    const history = Array.from({length: currentScale}, (_, i) => {
-                        const timeGap = currentScale - i;
-                        return curr - (trendDir * timeGap * 0.15) + (Math.random() * 0.3);
-                    });
-
-                    // Jeśli Worker nie zwrócił prognozy, generujemy ją sami
-                    const finalForecast = (forecastData && forecastData.length > 0) 
-                        ? forecastData 
-                        : [curr + (trendDir * 2), curr + (trendDir * 5), curr + (trendDir * 7)];
-
-                    renderHydroChart(canvas, history, currentScale, finalForecast);
-                });
+        if (isSelected) {
+            const ctx = document.getElementById('hydroChart');
+            if (ctx) {
+                const forecast = await fetchHydroForecast(s.id_stacji);
+                const trend = s.tendencja === "0" ? 1 : (s.tendencja === "1" ? -1 : 0);
+                const mockHistory = Array.from({length: currentScale}, (_, i) => currVal - (trend * (currentScale - i) * 0.1));
+                renderHydroChart(ctx, mockHistory, currentScale, forecast);
             }
         }
-    });
+    }
 }
 
 function updateWeatherUI(w) {
-    if (!w) return;
-    const ids = { 'w-temp': `${Math.round(w.temperature_2m)}°C`, 'w-rain': `${w.precipitation}mm`, 'w-wind': `${w.wind_speed_10m}m/s`, 'w-press': `${Math.round(w.surface_pressure)}hPa` };
-    Object.entries(ids).forEach(([id, val]) => {
-        const el = document.getElementById(id);
-        if (el) el.innerText = val;
-    });
-    const arrow = document.getElementById('wind-direction-container');
-    if (arrow) arrow.style.transform = `rotate(${w.wind_direction_10m}deg)`;
+    const el = { 'w-temp': `${Math.round(w.temperature_2m)}°C`, 'w-rain': `${w.precipitation.toFixed(1)}mm`, 'w-wind': `${w.wind_speed_10m.toFixed(1)}m/s`, 'w-press': `${Math.round(w.surface_pressure)}hPa` };
+    for (let [id, val] of Object.entries(el)) { if (document.getElementById(id)) document.getElementById(id).innerText = val; }
+    if (document.getElementById('wind-direction-container')) document.getElementById('wind-direction-container').style.transform = `rotate(${w.wind_direction_10m}deg)`;
 }
 
 function renderRiverGrid() {
     const grid = document.getElementById('river-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    [...RIVERS_LIST].sort().forEach(r => {
+    RIVERS_LIST.forEach(r => {
         const b = document.createElement('button');
-        b.className = "p-4 rounded-xl bg-gray-100 text-xs font-bold text-gray-600 text-left active:scale-95 transition-all";
+        b.className = "p-4 rounded-xl bg-gray-50 text-[10px] font-black text-gray-400 text-left border border-gray-100 active:scale-95 transition-all";
         b.innerText = r;
-        b.onclick = () => { 
-            activeRiver = r; 
-            activeStation = ""; 
-            window.toggleScreen('settings-screen', false); 
-            refreshAllData(); 
-        };
+        b.onclick = () => { activeRiver = r; activeStation = ""; window.toggleScreen('settings-screen', false); refreshAllData(); };
         grid.appendChild(b);
     });
 }
 
 function setupEventListeners() {
-    const trigger = document.getElementById('river-selector-trigger');
-    if (trigger) trigger.onclick = () => window.toggleScreen('settings-screen', true);
-
+    document.getElementById('river-selector-trigger').onclick = () => window.toggleScreen('settings-screen', true);
+    document.getElementById('close-settings').onclick = () => window.toggleScreen('settings-screen', false);
     [6, 12, 24, 48].forEach(h => {
         const btn = document.getElementById(`btn-${h}`);
-        if (btn) {
-            btn.onclick = () => {
-                currentScale = h;
-                document.querySelectorAll('.time-btn').forEach(b => b.classList.toggle('active', b.id === `btn-${h}`));
-                updateUI();
-            };
-        }
+        if (btn) btn.onclick = () => { currentScale = h; document.querySelectorAll('.time-btn').forEach(b => b.classList.toggle('active', b.id === `btn-${h}`)); updateUI(); };
     });
 }
 
-window.toggleScreen = (id, state) => document.getElementById(id)?.classList.toggle('active', state);
+window.toggleScreen = (id, state) => { const el = document.getElementById(id); if (el) el.classList.toggle('active', state); };
 
 init();

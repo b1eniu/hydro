@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hydro-v1.2';
+const CACHE_NAME = 'hydro-v1.4';
 const assets = ['./', './index.html', './js/main.js', './js/config.js', './js/api.js', './js/chart.js'];
 
 self.addEventListener('install', (e) => {
