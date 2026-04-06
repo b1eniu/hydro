@@ -15,12 +15,11 @@ export async function fetchHydroData() {
 }
 
 /**
- * Pobiera dane pogodowe z Open-Meteo dla Warszawy (jako punktu centralnego)
- * Możemy to później rozbudować o geolokalizację!
+ * Pobiera dane pogodowe z Open-Meteo dla konkretnych współrzędnych
  */
-export async function fetchWeatherData() {
+export async function fetchWeatherData(lat = 52.2297, lon = 21.0122) {
     try {
-        const url = 'https://api.open-meteo.com/v1/forecast?latitude=52.2297&longitude=21.0122&current=temperature_2m,relative_humidity_2m,precipitation,surface_pressure,wind_speed_10m&wind_speed_unit=ms';
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,surface_pressure,wind_speed_10m&wind_speed_unit=ms`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Błąd połączenia z API Pogody');
         return await response.json();

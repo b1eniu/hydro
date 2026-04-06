@@ -3,49 +3,36 @@ import { STATION_DB, RIVERS_LIST } from './config.js';
 import { fetchHydroData, fetchWeatherData } from './api.js';
 import { renderHydroChart } from './chart.js';
 
-// Stan aplikacji (zmienne pomocnicze)
 let activeRiver = localStorage.getItem('lastRiver') || "Wisła";
 let activeStation = localStorage.getItem('lastStation') || "";
 let hydroData = [];
 let isDescending = false;
 let currentScale = 48;
 
-/**
- * GŁÓWNA FUNKCJA STARTOWA
- */
 async function init() {
     setupEventListeners();
     renderRiverGrid();
     await refreshAllData();
 }
 
-/**
- * Pobieranie i wyświetlanie wszystkich danych
- */
 async function refreshAllData() {
-    // 1. Pobierz dane hydro
     const allData = await fetchHydroData();
     hydroData = allData.filter(s => s.rzeka.toLowerCase() === activeRiver.toLowerCase());
     
-    // Sortowanie
     hydroData.sort((a, b) => parseInt(a.id_stacji) - parseInt(b.id_stacji));
     if (isDescending) hydroData.reverse();
 
-    // Jeśli nie mamy wybranej stacji, weź pierwszą z brzegu
     if (!activeStation && hydroData.length > 0) activeStation = hydroData[0].stacja;
 
-    // 2. Pobierz pogodę
-    const weather = await fetchWeatherData();
+    // Pobieranie pogody dla aktualnie wybranej stacji przy starcie
+    const dbEntry = STATION_DB[activeStation.toUpperCase()];
+    const weather = await fetchWeatherData(dbEntry?.lat, dbEntry?.lon);
     if (weather) updateWeatherUI(weather.current);
 
-    // 3. Odśwież interfejs
     updateUI();
     document.getElementById('last-update').innerText = `LIVE: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
 }
 
-/**
- * Aktualizacja wyglądu listy i wykresu
- */
 function updateUI() {
     const container = document.getElementById('list-container');
     container.innerHTML = '';
@@ -56,15 +43,12 @@ function updateUI() {
     localStorage.setItem('lastRiver', activeRiver);
     localStorage.setItem('lastStation', activeStation);
 
-    // Znajdź sąsiednie stacje dla kontekstu
     const idx = hydroData.findIndex(s => s.stacja === activeStation);
     const slice = idx === -1 ? hydroData.slice(0, 7) : hydroData.slice(Math.max(0, idx - 3), idx + 4);
 
     slice.forEach(s => {
         const isSel = s.stacja === activeStation;
         const curr = parseFloat(s.stan_wody) || 0;
-        
-        // DOPASOWANIE PO NAZWIE (Naprawa błędów z 1.0.1)
         const dbEntry = STATION_DB[s.stacja.toUpperCase()];
         const ostrz = dbEntry ? dbEntry.ostrz : '---';
         const alarm = dbEntry ? dbEntry.alarm : '---';
@@ -75,8 +59,16 @@ function updateUI() {
 
         const row = document.createElement('div');
         row.className = `station-row px-6 py-5 flex justify-between items-center cursor-pointer ${isSel ? 'selected-station' : ''}`;
-        row.onclick = () => { 
+        
+        row.onclick = async () => { 
             activeStation = s.stacja; 
+            
+            // Pobierz pogodę dla klikniętej stacji
+            if (dbEntry && dbEntry.lat) {
+                const newWeather = await fetchWeatherData(dbEntry.lat, dbEntry.lon);
+                if (newWeather) updateWeatherUI(newWeather.current);
+            }
+            
             updateUI(); 
             window.scrollTo({top: 0, behavior: 'smooth'}); 
         };
@@ -98,7 +90,6 @@ function updateUI() {
 
         if (isSel) {
             const ctx = document.getElementById('hydroChart');
-            // Generujemy dane do wykresu (na razie symulacja na bazie aktualnej wartości)
             const mockValues = Array.from({length: currentScale + 1}, () => curr + (Math.random() * 4 - 2));
             renderHydroChart(ctx, mockValues, currentScale);
         }
@@ -146,10 +137,8 @@ function setupEventListeners() {
     });
 }
 
-// Globalne funkcje dostępne dla HTML (onclick w index.html)
 window.toggleScreen = function(id, state) {
     document.getElementById(id).classList.toggle('active', state);
 };
 
-// Start aplikacji
 init();
