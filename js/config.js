@@ -1,3 +1,21 @@
+// js/config.js
+
+// Lista rzek dostępna w menu ustawień
+export const RIVERS_LIST = [
+    "Wisła", 
+    "Odra", 
+    "Warta", 
+    "Bug", 
+    "Narew", 
+    "San", 
+    "Pilica", 
+    "Wieprz", 
+    "Radomka", 
+    "Dunajec", 
+    "Skawa"
+];
+
+// Baza progów ostrzegawczych i alarmowych dla konkretnych stacji
 export const STATION_DB = {
     "RACIBÓRZ-MIEDONIA": { ostrz: 500, alarm: 650 },
     "KĘDZIERZYN-KOŹLE": { ostrz: 450, alarm: 600 },
