@@ -12,5 +12,71 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <header class="p-6 flex justify-between items-center max-w-2xl mx-auto sticky top-0 bg-white/90 backdrop-blur-md z-50 border-b border-gray-100">
+        <div class="flex flex-col"><span id="last-update" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">--:--</span></div>
+        <h1 class="font-black text-2xl italic tracking-tighter text-gray-800">hydro</h1>
+        <div class="flex gap-3">
+            <button onclick="toggleScreen('info-screen', true)" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center border-none cursor-pointer"><i class="bi bi-info-circle"></i></button>
+            <button onclick="toggleScreen('settings-screen', true)" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center border-none cursor-pointer"><i class="bi bi-gear-fill"></i></button>
+        </div>
+    </header>
+
+    <div class="px-4 max-w-2xl mx-auto mt-4">
+        <div id="weather-bar" class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+            <div class="weather-card"><i class="bi bi-thermometer-sun text-orange-500 text-lg"></i><p id="w-temp" class="text-[11px] font-black mt-1">--°C</p></div>
+            <div class="weather-card"><i class="bi bi-cloud-drizzle-fill text-blue-400 text-lg"></i><p id="w-rain" class="text-[11px] font-black mt-1">--mm</p></div>
+            <div class="weather-card"><i class="bi bi-wind text-teal-500 text-lg"></i><p id="w-wind" class="text-[11px] font-black mt-1">--m/s</p></div>
+            <div class="weather-card"><i class="bi bi-speedometer text-purple-500 text-lg"></i><p id="w-press" class="text-[11px] font-black mt-1">--hPa</p></div>
+        </div>
+    </div>
+
+    <main class="px-4 max-w-2xl mx-auto space-y-6 mt-4">
+        <div class="text-center">
+            <p id="river-display" class="text-blue-500 uppercase tracking-[0.3em] text-[10px] font-black mb-1">---</p>
+            <h2 id="station-display" class="text-2xl font-black text-gray-800 tracking-tight italic">Wczytywanie...</h2>
+        </div>
+
+        <div class="card-custom p-5">
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest italic">Trend 48h</span>
+                <div class="flex gap-1">
+                    <button id="btn-6" class="time-btn">6H</button>
+                    <button id="btn-12" class="time-btn">12H</button>
+                    <button id="btn-24" class="time-btn">24H</button>
+                    <button id="btn-48" class="time-btn active">48H</button>
+                </div>
+            </div>
+            <div class="chart-wrapper"><canvas id="hydroChart"></canvas></div>
+        </div>
+
+        <div class="flex flex-col items-center gap-3">
+            <button id="reverse-btn" class="reverse-btn-main"><i class="bi bi-arrow-down-up"></i> ODWRÓĆ LISTĘ</button>
+            <p id="dir-text" class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">Kierunek: Do ujścia</p>
+        </div>
+
+        <div class="card-custom overflow-hidden border border-gray-100">
+            <div id="list-container" class="flex flex-col"></div>
+        </div>
+    </main>
+
+    <div id="settings-screen" class="overlay">
+        <div class="flex justify-between items-center mb-8"><h3 class="text-2xl font-black italic">Rzeka</h3><button onclick="toggleScreen('settings-screen', false)" class="text-3xl">&times;</button></div>
+        <div id="river-grid" class="grid grid-cols-2 gap-3"></div>
+    </div>
+
+    <div id="info-screen" class="overlay">
+        <div class="flex justify-between items-center mb-8"><h3 class="text-2xl font-black italic">Info</h3><button onclick="toggleScreen('info-screen', false)" class="text-3xl">&times;</button></div>
+        <div class="card-custom p-8 text-center space-y-4">
+            <i class="bi bi-person-badge text-6xl text-blue-500"></i>
+            <p class="text-xl font-bold text-gray-800">Tomasz Bieniek</p>
+            <p class="text-sm text-gray-500 font-medium">tomaszbieniek86@gmail.com</p>
+            <div class="pt-6 border-t border-gray-100 mt-6">
+                <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest">Aplikacja Hydro v1.1</p>
+                <p class="text-[9px] text-gray-400 mt-1">Dane: IMGW-PIB</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
     </body>
 </html>
