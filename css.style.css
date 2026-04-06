@@ -1,1 +1,99 @@
+/* css/style.css */
+body { 
+    background-color: #f8f9fa; 
+    font-family: -apple-system, system-ui, sans-serif; 
+    overflow-x: hidden; 
+    -webkit-tap-highlight-color: transparent; 
+}
 
+.card-custom { 
+    background: white; 
+    border-radius: 24px; 
+    box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05); 
+}
+
+.chart-wrapper { 
+    position: relative; 
+    height: 180px; 
+    width: 100%; 
+}
+
+.station-row { 
+    transition: background 0.2s; 
+    border-left: 4px solid transparent; 
+    border-bottom: 1px solid #f9fafb; 
+}
+
+.selected-station { 
+    background-color: #f0f7ff !important; 
+    border-left-color: #3b82f6 !important; 
+}
+
+.overlay { 
+    display: none; 
+    position: fixed; 
+    inset: 0; 
+    background: white; 
+    z-index: 10000; 
+    flex-direction: column; 
+    padding: 24px; 
+    overflow-y: auto; 
+}
+
+.overlay.active { 
+    display: flex !important; 
+}
+
+.status-warning { 
+    color: #f97316 !important; 
+    font-weight: 800; 
+}
+
+.status-alarm { 
+    color: #ef4444 !important; 
+    font-weight: 800; 
+}
+
+.reverse-btn-main { 
+    background: #22c55e; 
+    color: white; 
+    padding: 12px 24px; 
+    border-radius: 16px; 
+    font-weight: 900; 
+    font-size: 13px; 
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4); 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    border: none; 
+}
+
+.time-btn { 
+    padding: 6px 12px; 
+    border-radius: 10px; 
+    font-size: 10px; 
+    font-weight: 800; 
+    background: #f3f4f6; 
+    color: #6b7280; 
+    cursor: pointer; 
+    border: none; 
+}
+
+.time-btn.active { 
+    background: #3b82f6; 
+    color: white; 
+}
+
+.weather-card { 
+    background: white; 
+    border-radius: 18px; 
+    padding: 10px; 
+    text-align: center; 
+    flex: 1; 
+    min-width: 75px; 
+    border: 1px solid #f1f5f9; 
+}
+
+.no-scrollbar::-webkit-scrollbar { 
+    display: none; 
+}
